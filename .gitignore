@@ -14,6 +14,10 @@ venv/
 # Local runtime data from demos
 examples/received.jsonl
 
+# Secrets
+.pypirc
+.env
+
 # OS / editor
 .DS_Store
 Thumbs.db
