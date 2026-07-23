@@ -7,9 +7,8 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any
-
 from pathlib import Path
+from typing import Any
 
 from logballoon.env import collect_env
 from logballoon.identity import data_dir, get_or_create_installation_id
@@ -29,8 +28,10 @@ class LogBalloon:
         version: str,
         endpoint: str,
         flush_interval: float = 5.0,
-        batch_size: int = 50,
-        timeout: float = 10.0,
+        batch_size: int = 20,
+        max_queue: int = 1000,
+        max_backoff: float = 120.0,
+        timeout: float = 5.0,
         install_excepthook: bool = True,
         data_root: str | Path | None = None,
     ) -> None:
@@ -38,6 +39,7 @@ class LogBalloon:
         self.version = version
         self.flush_interval = flush_interval
         self.batch_size = batch_size
+        self.max_backoff = max_backoff
         self.install_excepthook = install_excepthook
 
         # data_root: override for tests / custom storage. Default is OS user data dir.
@@ -48,7 +50,7 @@ class LogBalloon:
         app_dir.mkdir(parents=True, exist_ok=True)
 
         self.installation_id = get_or_create_installation_id(app_dir)
-        self._queue = OfflineQueue(app_dir / "queue.sqlite3")
+        self._queue = OfflineQueue(app_dir / "queue.sqlite3", max_items=max_queue)
         self._transport = Transport(endpoint, timeout=timeout)
         self._env = collect_env(
             app_name=app_name,
@@ -59,6 +61,7 @@ class LogBalloon:
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._flush_lock = threading.Lock()
+        self._fail_streak = 0
         self._thread: threading.Thread | None = None
         self._started = False
         self._previous_excepthook = None
@@ -89,7 +92,7 @@ class LogBalloon:
         self._wake.set()
 
     def event(self, name: str, payload: dict[str, Any] | None = None) -> None:
-        """Enqueue an application event."""
+        """Enqueue an application event (non-blocking)."""
         body = {
             "app": self.app_name,
             "version": self.version,
@@ -99,6 +102,7 @@ class LogBalloon:
             "timestamp": time.time(),
         }
         self._queue.enqueue("event", body)
+        # Wake the worker, but do not send on the caller thread.
         self._wake.set()
 
     def flush(self, timeout: float | None = None) -> int:
@@ -149,13 +153,28 @@ class LogBalloon:
             if self._previous_excepthook is not None:
                 self._previous_excepthook(exc_type, exc, tb)
 
+    def _wait_seconds(self) -> float:
+        if self._fail_streak <= 0:
+            return self.flush_interval
+        # Exponential backoff capped for weak PCs / flaky networks.
+        wait = self.flush_interval * (2 ** min(self._fail_streak, 6))
+        return min(wait, self.max_backoff)
+
     def _run_loop(self) -> None:
         while not self._stop.is_set():
             try:
-                self._flush_once()
+                delivered = self._flush_once()
+                pending = self._queue.count()
+                if delivered > 0:
+                    self._fail_streak = 0
+                elif pending > 0:
+                    self._fail_streak += 1
+                else:
+                    self._fail_streak = 0
             except Exception:  # noqa: BLE001
                 logger.exception("Flush loop error")
-            self._wake.wait(self.flush_interval)
+                self._fail_streak += 1
+            self._wake.wait(self._wait_seconds())
             self._wake.clear()
 
     def _flush_once(self) -> int:

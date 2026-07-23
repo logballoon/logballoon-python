@@ -59,6 +59,17 @@ lb.event("job_done", {
 })
 ```
 
+Full contract: [Protocol page](https://logballoon.github.io/logballoon-python/protocol.html).
+
+## Lightweight defaults (0.1.1+)
+
+Built for weak PCs and flaky networks:
+
+- small flush batches (`batch_size=20`)
+- bounded queue (`max_queue=1000`, drops oldest)
+- exponential backoff on delivery failure (capped by `max_backoff`)
+- `event()` only enqueues — network I/O stays on the background thread
+
 ## Self-hosted REST API
 
 LogBalloon does **not** require a SaaS backend. You run the server and accept JSON on simple REST routes.

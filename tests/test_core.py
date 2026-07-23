@@ -174,3 +174,34 @@ def test_crash_is_queued_and_sent(tmp_path: Path) -> None:
     finally:
         sys.excepthook = previous
         server.shutdown()
+
+
+def test_queue_drops_oldest_when_full(tmp_path: Path) -> None:
+    q = OfflineQueue(tmp_path / "q.sqlite3", max_items=3)
+    q.enqueue("event", {"n": 1})
+    q.enqueue("event", {"n": 2})
+    q.enqueue("event", {"n": 3})
+    q.enqueue("event", {"n": 4})
+    assert q.count() == 3
+    nums = [item["payload"]["n"] for item in q.peek(10)]
+    assert nums == [2, 3, 4]
+
+
+def test_backoff_grows_then_caps(tmp_path: Path) -> None:
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        install_excepthook=False,
+        flush_interval=1.0,
+        max_backoff=8.0,
+        data_root=tmp_path / "lb",
+    )
+    lb._fail_streak = 0
+    assert lb._wait_seconds() == 1.0
+    lb._fail_streak = 1
+    assert lb._wait_seconds() == 2.0
+    lb._fail_streak = 2
+    assert lb._wait_seconds() == 4.0
+    lb._fail_streak = 10
+    assert lb._wait_seconds() == 8.0

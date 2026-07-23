@@ -13,8 +13,11 @@ from typing import Any
 class OfflineQueue:
     """Persist outbound messages until the server accepts them."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, *, max_items: int = 1000) -> None:
+        if max_items < 1:
+            raise ValueError("max_items must be >= 1")
         self._db_path = db_path
+        self._max_items = max_items
         self._lock = threading.Lock()
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -40,6 +43,7 @@ class OfflineQueue:
             conn.commit()
 
     def enqueue(self, kind: str, payload: dict[str, Any]) -> int:
+        """Append an item. If over capacity, drop the oldest rows first."""
         now = time.time()
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         with self._lock, self._connect() as conn:
@@ -47,10 +51,20 @@ class OfflineQueue:
                 "INSERT INTO queue (kind, payload, created_at, attempts) VALUES (?, ?, ?, 0)",
                 (kind, body, now),
             )
+            item_id = int(cur.lastrowid)
+            row = conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()
+            overflow = int(row["n"]) - self._max_items
+            if overflow > 0:
+                conn.execute(
+                    "DELETE FROM queue WHERE id IN ("
+                    "SELECT id FROM queue ORDER BY id ASC LIMIT ?"
+                    ")",
+                    (overflow,),
+                )
             conn.commit()
-            return int(cur.lastrowid)
+            return item_id
 
-    def peek(self, limit: int = 50) -> list[dict[str, Any]]:
+    def peek(self, limit: int = 20) -> list[dict[str, Any]]:
         with self._lock, self._connect() as conn:
             rows = conn.execute(
                 "SELECT id, kind, payload, created_at, attempts "
