@@ -2,7 +2,7 @@
 
 Offline-first logging and operations SDK for desktop apps.
 
-Buffer locally. Deliver reliably.
+**Buffer locally. Deliver reliably.**
 
 - Site: https://logballoon.github.io/logballoon-python/
 - PyPI: https://pypi.org/project/logballoon/
@@ -14,10 +14,10 @@ Buffer locally. Deliver reliably.
 pip install logballoon
 ```
 
-開発中（このリポジトリ）:
+From this repository:
 
 ```bash
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Quick start
@@ -28,63 +28,75 @@ from logballoon import LogBalloon
 lb = LogBalloon(
     app_name="FFT Analyzer",
     version="1.0.0",
-    endpoint="http://127.0.0.1:8765",
+    endpoint="http://127.0.0.1:8765",  # your self-hosted server
 )
 lb.start()
-lb.event("export_complete", {"rows": 120})
+lb.event("export_complete", {"rows": 120, "format": "csv"})
 ```
 
-これだけで:
+With that you get:
 
-- `installation_id` の生成・保存
-- 起動ログ送信
-- 任意イベント送信
-- 未捕捉例外のクラッシュ報告
-- 通信失敗時の SQLite キュー退避と再送
+- `installation_id` creation and persistence
+- startup reporting
+- custom events
+- uncaught exception / crash capture
+- SQLite offline queue + retry
 
-を行います。**追加の依存パッケージは不要**です（Python 標準ライブラリのみ）。
+**No third-party runtime dependencies** (Python stdlib only).
 
-## Demo
+## Custom payloads
+
+The **envelope is fixed** for interoperability (`app`, `version`, `installation_id`, `event`, `timestamp`, …).
+
+The **`payload` dict is yours** — add any fields your product needs:
+
+```python
+lb.event("job_done", {
+    "duration_ms": 842,
+    "operator": "A12",
+    "batch_id": "2026-07-22-03",
+})
+```
+
+## Self-hosted REST API
+
+LogBalloon does **not** require a SaaS backend. You run the server and accept JSON on simple REST routes:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/startup` | Boot + environment |
+| `POST` | `/event` | Named event + free-form payload |
+| `POST` | `/crash` | Exception + stack trace |
+
+Point `endpoint=` at your host. A minimal demo receiver is included:
 
 ```bash
-# 端末1: 受信サーバ
-python examples/demo_server.py
-
-# 端末2: クライアント
-python examples/demo_client.py
-```
-
-オフライン動作の確認:
-
-```bash
-# サーバを止めている状態で実行 → キューに溜まる
-python examples/demo_client.py
-
-# サーバ起動後にもう一度実行 → 溜まった分も送られる
 python examples/demo_server.py
 python examples/demo_client.py
 ```
 
-## API
+Offline check: stop the server, run the client (events queue), start the server, run again (queued items flush).
 
-| メソッド | 説明 |
+## Client API
+
+| Method | Description |
 |---|---|
-| `start()` | 起動ログを enqueue し、バックグラウンド送信を開始 |
-| `event(name, payload=None)` | 任意イベントを enqueue |
-| `flush(timeout=None)` | 未送信キューを今すぐ送る |
-| `stop(flush=True)` | 送信スレッドを停止 |
+| `start()` | Enqueue startup and begin background delivery |
+| `event(name, payload=None)` | Enqueue a custom event |
+| `flush(timeout=None)` | Send pending queue items now |
+| `stop(flush=True)` | Stop the worker |
 
 ## Design
 
 ```
-App → LogBalloon → SQLite queue → HTTP (urllib) → Server
+App → LogBalloon → SQLite queue → HTTP (urllib) → Your server
                  ↖ retry on recovery ↗
 ```
 
 ## Requirements
 
 - Python 3.10+
-- Windows / Linux / macOS（ラズパイ含む）
+- Windows / Linux / macOS (including Raspberry Pi)
 
 ## Development
 
@@ -93,4 +105,4 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-CI は GitHub Actions（無料枠）で `main` への push / PR 時に pytest を実行します。
+CI runs pytest on push/PR via free GitHub Actions (Python 3.10 and 3.12).

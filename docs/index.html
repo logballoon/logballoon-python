@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LogBalloon — Offline-first operations SDK</title>
-  <meta name="description" content="Buffer locally. Deliver reliably. Offline-first logging and operations SDK for desktop apps." />
+  <meta name="description" content="Buffer locally. Deliver reliably. Offline-first logging and operations SDK for desktop apps. Self-host your REST receiver." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -12,7 +12,6 @@
     :root {
       --ink: #142033;
       --ink-soft: #3a4a63;
-      --paper: #f3f7fb;
       --sky-top: #7eb6d9;
       --sky-mid: #c5e0ef;
       --sky-low: #f6efe4;
@@ -44,7 +43,37 @@
       margin: 0 auto;
     }
 
-    /* —— Hero —— */
+    .lang-bar {
+      position: absolute;
+      top: 1.1rem;
+      right: max(1.25rem, calc((100% - 1080px) / 2 + 1.25rem));
+      z-index: 2;
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+    .lang-bar button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.4rem 0.7rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .lang-bar button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #fff;
+    }
+
     .hero {
       position: relative;
       min-height: 100vh;
@@ -65,7 +94,7 @@
 
     .tag {
       margin: 1rem 0 0;
-      max-width: 28rem;
+      max-width: 32rem;
       font-size: clamp(1.05rem, 2.2vw, 1.25rem);
       color: var(--ink-soft);
       font-weight: 500;
@@ -92,10 +121,7 @@
       transition: transform 160ms ease, background 160ms ease, color 160ms ease;
     }
     .btn:hover { transform: translateY(-1px); }
-    .btn-primary {
-      background: var(--ink);
-      color: #fff;
-    }
+    .btn-primary { background: var(--ink); color: #fff; }
     .btn-primary:hover { background: #0b1524; color: #fff; }
     .btn-ghost {
       background: rgba(255,255,255,0.55);
@@ -178,7 +204,6 @@
       50% { transform: translateY(12px); }
     }
 
-    /* —— Sections —— */
     main {
       background: rgba(255,255,255,0.72);
       border-top: 1px solid var(--line);
@@ -200,7 +225,7 @@
     .lead {
       margin: 0 0 1.75rem;
       color: var(--ink-soft);
-      max-width: 36rem;
+      max-width: 38rem;
       font-size: 1.05rem;
     }
 
@@ -215,15 +240,8 @@
       border-top: 3px solid var(--balloon);
       background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(243,247,251,0.5));
     }
-    .flow h3 {
-      margin: 0 0 0.35rem;
-      font-size: 1.05rem;
-    }
-    .flow p {
-      margin: 0;
-      color: var(--ink-soft);
-      font-size: 0.95rem;
-    }
+    .flow h3 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+    .flow p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
     .flow article::before {
       counter-increment: step;
       content: "0" counter(step);
@@ -287,6 +305,29 @@
       box-shadow: 0 0 0 4px rgba(31,122,92,0.15);
     }
 
+    .endpoints {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    .endpoints article {
+      padding: 1rem 1.05rem;
+      border-left: 3px solid var(--ink);
+      background: rgba(255,255,255,0.65);
+    }
+    .endpoints code {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      color: var(--ink);
+    }
+    .endpoints p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
     footer {
       padding: 2rem 0 3rem;
       color: var(--ink-soft);
@@ -301,18 +342,25 @@
     }
 
     @media (max-width: 860px) {
-      .flow { grid-template-columns: 1fr 1fr; }
+      .flow, .endpoints { grid-template-columns: 1fr 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
       .balloon { right: -2%; top: 8%; opacity: 0.85; }
       .packet { display: none; }
-      .hero { min-height: 88vh; align-items: end; }
+      .hero { min-height: 88vh; }
+      .lang-bar { right: 1rem; top: 0.85rem; }
     }
     @media (max-width: 520px) {
-      .flow { grid-template-columns: 1fr; }
+      .flow, .endpoints { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
+  <div class="lang-bar" role="group" aria-label="Language">
+    <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="ja" aria-pressed="false">日本語</button>
+    <button type="button" data-set-lang="zh" aria-pressed="false">中文</button>
+  </div>
+
   <header class="hero">
     <div class="sky-art" aria-hidden="true">
       <div class="balloon"><i class="string"></i></div>
@@ -324,7 +372,7 @@
     </div>
     <div class="wrap">
       <p class="brand">LogBalloon</p>
-      <p class="tag">オフラインでも溜めて、つながったら届ける。<br />デスクトップアプリ向け Offline-first 運用 SDK。</p>
+      <p class="tag" data-i18n="tag"></p>
       <div class="cta">
         <a class="btn btn-primary" href="https://pypi.org/project/logballoon/">pip install logballoon</a>
         <a class="btn btn-ghost" href="https://github.com/logballoon/logballoon-python">GitHub</a>
@@ -335,24 +383,24 @@
   <main>
     <section>
       <div class="wrap">
-        <h2>Buffer locally. Deliver reliably.</h2>
-        <p class="lead">通信が切れてもアプリは止めない。イベントは SQLite キューに退避し、復旧後にサーバへ再送します。</p>
+        <h2 data-i18n="flowTitle"></h2>
+        <p class="lead" data-i18n="flowLead"></p>
         <div class="flow">
           <article>
-            <h3>Collect</h3>
-            <p>起動・操作・クラッシュを SDK が受け取る。</p>
+            <h3 data-i18n="collectTitle"></h3>
+            <p data-i18n="collectBody"></p>
           </article>
           <article>
-            <h3>Buffer</h3>
-            <p>送れなければローカル SQLite に保持。</p>
+            <h3 data-i18n="bufferTitle"></h3>
+            <p data-i18n="bufferBody"></p>
           </article>
           <article>
-            <h3>Relay</h3>
-            <p>バックグラウンドで再送を試行。</p>
+            <h3 data-i18n="relayTitle"></h3>
+            <p data-i18n="relayBody"></p>
           </article>
           <article>
-            <h3>Deliver</h3>
-            <p>サーバ到達後にキューから削除。</p>
+            <h3 data-i18n="deliverTitle"></h3>
+            <p data-i18n="deliverBody"></p>
           </article>
         </div>
       </div>
@@ -361,35 +409,76 @@
     <section>
       <div class="wrap grid-2">
         <div>
-          <h2>一行から始められる</h2>
-          <p class="lead">依存パッケージなし。Python 標準ライブラリだけで動きます。</p>
+          <h2 data-i18n="startTitle"></h2>
+          <p class="lead" data-i18n="startLead"></p>
           <p class="code-label">Python</p>
           <pre><code>from logballoon import LogBalloon
 
 lb = LogBalloon(
     app_name="FFT Analyzer",
     version="1.0.0",
-    endpoint="https://example.com",
+    endpoint="https://ops.example.com",
 )
 lb.start()
-lb.event("export_complete", {"rows": 120})</code></pre>
+lb.event(
+    "export_complete",
+    {"rows": 120, "format": "csv", "site": "factory-a"},
+)</code></pre>
         </div>
         <div>
           <ul class="checklist">
-            <li>installation_id の自動生成</li>
-            <li>起動ログ / 任意イベント / クラッシュ捕捉</li>
-            <li>Offline queue（SQLite）</li>
-            <li>HTTP 送信は urllib（追加依存なし）</li>
-            <li>Windows 10/11・Linux・ラズパイ想定</li>
+            <li data-i18n="check1"></li>
+            <li data-i18n="check2"></li>
+            <li data-i18n="check3"></li>
+            <li data-i18n="check4"></li>
+            <li data-i18n="check5"></li>
           </ul>
         </div>
       </div>
     </section>
 
     <section>
+      <div class="wrap grid-2">
+        <div>
+          <h2 data-i18n="customTitle"></h2>
+          <p class="lead" data-i18n="customLead"></p>
+          <p class="code-label">Event payload</p>
+          <pre><code># Fixed envelope:
+#   app, version, installation_id,
+#   event, timestamp
+#
+# Free-form for you:
+lb.event("job_done", {
+    "duration_ms": 842,
+    "operator": "A12",
+    "batch_id": "2026-07-22-03",
+})</code></pre>
+        </div>
+        <div>
+          <h2 data-i18n="serverTitle"></h2>
+          <p class="lead" data-i18n="serverLead"></p>
+          <div class="endpoints">
+            <article>
+              <code>POST /startup</code>
+              <p data-i18n="epStartup"></p>
+            </article>
+            <article>
+              <code>POST /event</code>
+              <p data-i18n="epEvent"></p>
+            </article>
+            <article>
+              <code>POST /crash</code>
+              <p data-i18n="epCrash"></p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <div class="wrap">
-        <h2>誰のための SDK か</h2>
-        <p class="lead">社内ツール、現場アプリ、AI 生成の小型デスクトップアプリ。運用基盤を毎回自作しなくてよいように。</p>
+        <h2 data-i18n="whoTitle"></h2>
+        <p class="lead" data-i18n="whoLead"></p>
         <p class="code-label">Install</p>
         <pre><code>pip install logballoon</code></pre>
       </div>
@@ -406,5 +495,130 @@ lb.event("export_complete", {"rows": 120})</code></pre>
       </span>
     </div>
   </footer>
+
+  <script>
+    const I18N = {
+      en: {
+        tag: "Buffer offline. Deliver when the network returns.<br />Offline-first operations SDK for desktop apps.",
+        flowTitle: "Buffer locally. Deliver reliably.",
+        flowLead: "Connectivity loss should not stop your app. Events wait in a local SQLite queue and retry when the link is back.",
+        collectTitle: "Collect",
+        collectBody: "Startup, actions, and crashes enter the SDK.",
+        bufferTitle: "Buffer",
+        bufferBody: "If delivery fails, keep them on disk.",
+        relayTitle: "Relay",
+        relayBody: "A background worker retries quietly.",
+        deliverTitle: "Deliver",
+        deliverBody: "Remove from the queue after the server accepts.",
+        startTitle: "Start in a few lines",
+        startLead: "No extra dependencies. Pure Python stdlib — urllib + sqlite3.",
+        check1: "Auto installation_id",
+        check2: "Startup / custom events / crash capture",
+        check3: "Offline SQLite queue",
+        check4: "HTTP via urllib (zero deps)",
+        check5: "Windows, Linux, Raspberry Pi ready",
+        customTitle: "Bring your own fields",
+        customLead: "The envelope is fixed for interoperability. Inside payload, put whatever your app needs — no rigid schema beyond that.",
+        serverTitle: "Self-host the REST API",
+        serverLead: "You keep the server. Point endpoint at your own host and accept JSON over simple REST routes. A demo receiver is included in the repo.",
+        epStartup: "App boot + environment",
+        epEvent: "Named events + free payload",
+        epCrash: "Exception + stack trace",
+        whoTitle: "Who it is for",
+        whoLead: "Internal tools, factory-floor apps, research utilities, and small AI-generated desktop apps that should not reinvent operations plumbing.",
+      },
+      ja: {
+        tag: "オフラインでも溜めて、つながったら届ける。<br />デスクトップアプリ向け Offline-first 運用 SDK。",
+        flowTitle: "Buffer locally. Deliver reliably.",
+        flowLead: "通信が切れてもアプリは止めません。イベントはローカル SQLite に退避し、復旧後に再送します。",
+        collectTitle: "Collect",
+        collectBody: "起動・操作・クラッシュを SDK が受け取る。",
+        bufferTitle: "Buffer",
+        bufferBody: "送れなければディスクに保持。",
+        relayTitle: "Relay",
+        relayBody: "バックグラウンドで静かに再送。",
+        deliverTitle: "Deliver",
+        deliverBody: "サーバ受理後にキューから削除。",
+        startTitle: "数行から始められる",
+        startLead: "追加依存なし。Python 標準ライブラリ（urllib + sqlite3）だけ。",
+        check1: "installation_id の自動生成",
+        check2: "起動 / 任意イベント / クラッシュ捕捉",
+        check3: "Offline SQLite キュー",
+        check4: "HTTP は urllib（依存ゼロ）",
+        check5: "Windows・Linux・ラズパイ想定",
+        customTitle: "フィールドは自由に",
+        customLead: "相互運用のための envelope は固定。payload の中身はアプリ都合で好きに載せられます。厳しい追加スキーマはありません。",
+        serverTitle: "サーバはセルフホスト",
+        serverLead: "サーバはあなたが持ちます。endpoint を自前ホストに向け、シンプルな REST で JSON を受ければOK。デモ受信サーバもリポジトリにあります。",
+        epStartup: "起動 + 環境情報",
+        epEvent: "名前付きイベント + 自由な payload",
+        epCrash: "例外 + スタックトレース",
+        whoTitle: "誰のための SDK か",
+        whoLead: "社内ツール、現場アプリ、研究用ユーティリティ、AI 生成の小型デスクトップアプリ。運用基盤を毎回自作しなくてよいように。",
+      },
+      zh: {
+        tag: "离线先缓存，网络恢复后再送达。<br />面向桌面应用的 Offline-first 运维 SDK。",
+        flowTitle: "Buffer locally. Deliver reliably.",
+        flowLead: "断网也不应卡住应用。事件先写入本地 SQLite 队列，连通后再重试发送。",
+        collectTitle: "Collect",
+        collectBody: "启动、操作与崩溃进入 SDK。",
+        bufferTitle: "Buffer",
+        bufferBody: "发送失败就保留在本地磁盘。",
+        relayTitle: "Relay",
+        relayBody: "后台静默重试。",
+        deliverTitle: "Deliver",
+        deliverBody: "服务端接收后从队列删除。",
+        startTitle: "几行代码即可接入",
+        startLead: "无额外依赖。仅用 Python 标准库（urllib + sqlite3）。",
+        check1: "自动生成 installation_id",
+        check2: "启动 / 自定义事件 / 崩溃捕获",
+        check3: "离线 SQLite 队列",
+        check4: "通过 urllib 发送（零依赖）",
+        check5: "适配 Windows、Linux、树莓派",
+        customTitle: "字段可自定义",
+        customLead: "为保证互通，envelope 固定；payload 内可按业务自由填写，没有更严的强制 schema。",
+        serverTitle: "REST API 自行托管",
+        serverLead: "服务端由你自己部署。把 endpoint 指到自有主机，用简单 REST 接收 JSON 即可。仓库内附带演示接收服务。",
+        epStartup: "启动 + 环境信息",
+        epEvent: "命名事件 + 自由 payload",
+        epCrash: "异常 + 堆栈",
+        whoTitle: "适合谁用",
+        whoLead: "内部工具、产线应用、研究小工具，以及不想每次自建运维底座的小型 AI 生成桌面应用。",
+      },
+    };
+
+    function detectLang() {
+      const q = new URLSearchParams(location.search).get("lang");
+      if (q && I18N[q]) return q;
+      const saved = localStorage.getItem("lb-lang");
+      if (saved && I18N[saved]) return saved;
+      const nav = (navigator.language || "en").toLowerCase();
+      if (nav.startsWith("ja")) return "ja";
+      if (nav.startsWith("zh")) return "zh";
+      return "en";
+    }
+
+    function applyLang(lang) {
+      const pack = I18N[lang] || I18N.en;
+      document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (pack[key] != null) el.innerHTML = pack[key];
+      });
+      document.querySelectorAll("[data-set-lang]").forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.getAttribute("data-set-lang") === lang));
+      });
+      localStorage.setItem("lb-lang", lang);
+      const url = new URL(location.href);
+      url.searchParams.set("lang", lang);
+      history.replaceState(null, "", url);
+    }
+
+    document.querySelectorAll("[data-set-lang]").forEach((btn) => {
+      btn.addEventListener("click", () => applyLang(btn.getAttribute("data-set-lang")));
+    });
+
+    applyLang(detectLang());
+  </script>
 </body>
 </html>
