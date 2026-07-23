@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logballoon"
-version = "0.1.1"
+version = "0.1.2"
 description = "Offline-first logging and operations SDK for desktop apps"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,8 +39,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/logballoon/logballoon"
-Repository = "https://github.com/logballoon/logballoon"
+Homepage = "https://logballoon.github.io/logballoon-python/"
+Repository = "https://github.com/logballoon/logballoon-python"
+Documentation = "https://logballoon.github.io/logballoon-python/protocol.html"
+Issues = "https://github.com/logballoon/logballoon-python/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/logballoon"]
