@@ -91,7 +91,8 @@ def test_event_payload_is_free_form(tmp_path: Path) -> None:
         )
         lb.start()
         lb.event("export_complete", {"rows": 120, "format": "csv"})
-        assert lb.flush(timeout=3.0) >= 2
+        lb.flush(timeout=3.0)
+        assert lb.pending() == 0
 
         events = [r for r in received if r["path"] == "/event"]
         assert len(events) == 1
