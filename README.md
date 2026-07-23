@@ -85,3 +85,12 @@ App → LogBalloon → SQLite queue → HTTP (urllib) → Server
 
 - Python 3.10+
 - Windows / Linux / macOS（ラズパイ含む）
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+python -m pytest -q
+```
+
+CI は GitHub Actions（無料枠）で `main` への push / PR 時に pytest を実行します。
