@@ -5,6 +5,7 @@ Offline-first logging and operations SDK for desktop apps.
 **Buffer locally. Deliver reliably.**
 
 - Site: https://logballoon.github.io/logballoon-python/
+- Protocol: https://logballoon.github.io/logballoon-python/protocol.html
 - PyPI: https://pypi.org/project/logballoon/
 - Repo: https://github.com/logballoon/logballoon-python
 
@@ -60,7 +61,9 @@ lb.event("job_done", {
 
 ## Self-hosted REST API
 
-LogBalloon does **not** require a SaaS backend. You run the server and accept JSON on simple REST routes:
+LogBalloon does **not** require a SaaS backend. You run the server and accept JSON on simple REST routes.
+
+Full envelope examples: [Protocol page](https://logballoon.github.io/logballoon-python/protocol.html).
 
 | Method | Path | Purpose |
 |---|---|---|

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LogBalloon Protocol — Envelope contract</title>
+  <meta name="description" content="LogBalloon envelope contract: fixed fields, free-form payload, self-hosted REST endpoints." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #142033;
+      --ink-soft: #3a4a63;
+      --sky-top: #7eb6d9;
+      --sky-mid: #c5e0ef;
+      --sky-low: #f6efe4;
+      --balloon: #e85d4c;
+      --balloon-deep: #c43b2b;
+      --line: rgba(20, 32, 51, 0.12);
+      --ok: #1f7a5c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Manrope", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 480px at 80% -10%, rgba(255,255,255,0.5), transparent 55%),
+        linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 38%, var(--sky-low) 100%);
+      min-height: 100vh;
+      line-height: 1.55;
+    }
+    a { color: var(--balloon-deep); text-underline-offset: 0.18em; }
+    a:hover { color: var(--ink); }
+    .wrap { width: min(860px, calc(100% - 2.5rem)); margin: 0 auto; }
+
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1rem;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.1rem 0 0.25rem;
+    }
+    .brand-link {
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 700;
+      font-size: 1.35rem;
+      color: var(--ink);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .lang-bar {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+    .lang-bar button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 0.4rem 0.7rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .lang-bar button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #fff;
+    }
+
+    header.page {
+      padding: 2.5rem 0 2rem;
+    }
+    h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin: 0 0 0.75rem;
+    }
+    .lead {
+      margin: 0;
+      max-width: 40rem;
+      color: var(--ink-soft);
+      font-size: 1.05rem;
+    }
+
+    main {
+      background: rgba(255,255,255,0.78);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 0.25rem 0;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(8px);
+    }
+    section {
+      padding: 1.75rem 1.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+    section:last-child { border-bottom: 0; }
+    h2 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.45rem;
+      margin: 0 0 0.55rem;
+      letter-spacing: -0.02em;
+    }
+    p { margin: 0 0 0.85rem; color: var(--ink-soft); }
+    p:last-child { margin-bottom: 0; }
+    ul { margin: 0.4rem 0 0; padding-left: 1.15rem; color: var(--ink-soft); }
+    li { margin: 0.25rem 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.45rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { color: var(--ink); font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    td code { font-weight: 700; color: var(--ink); }
+
+    .code-label {
+      display: inline-block;
+      margin: 0.85rem 0 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    pre {
+      margin: 0;
+      padding: 1rem 1.05rem;
+      overflow-x: auto;
+      background: #142033;
+      color: #e8eef7;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    code { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+
+    .note {
+      margin-top: 0.85rem;
+      padding: 0.85rem 1rem;
+      border-left: 3px solid var(--ok);
+      background: rgba(31,122,92,0.08);
+      color: var(--ink-soft);
+      font-size: 0.95rem;
+    }
+
+    footer {
+      padding: 0 0 2.5rem;
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand-link" href="./">LogBalloon</a>
+      <div class="lang-bar" role="group" aria-label="Language">
+        <button type="button" data-set-lang="en" aria-pressed="true" title="English">EN</button>
+        <button type="button" data-set-lang="ja" aria-pressed="false" title="Japanese">JA</button>
+        <button type="button" data-set-lang="zh" aria-pressed="false" title="Chinese">ZH</button>
+      </div>
+    </div>
+
+    <header class="page">
+      <h1 data-i18n="title"></h1>
+      <p class="lead" data-i18n="lead"></p>
+    </header>
+
+    <main>
+      <section>
+        <h2 data-i18n="s1title"></h2>
+        <p data-i18n="s1body"></p>
+        <ul>
+          <li data-i18n="s1li1"></li>
+          <li data-i18n="s1li2"></li>
+          <li data-i18n="s1li3"></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 data-i18n="s2title"></h2>
+        <p data-i18n="s2body"></p>
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="thMethod"></th>
+              <th data-i18n="thPath"></th>
+              <th data-i18n="thPurpose"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST</code></td><td><code>/startup</code></td><td data-i18n="epStartup"></td></tr>
+            <tr><td><code>POST</code></td><td><code>/event</code></td><td data-i18n="epEvent"></td></tr>
+            <tr><td><code>POST</code></td><td><code>/crash</code></td><td data-i18n="epCrash"></td></tr>
+          </tbody>
+        </table>
+        <div class="note" data-i18n="httpNote"></div>
+      </section>
+
+      <section>
+        <h2 data-i18n="s3title"></h2>
+        <p data-i18n="s3body"></p>
+        <p class="code-label">POST /startup</p>
+        <pre><code>{
+  "app": "FFT Analyzer",
+  "version": "1.0.0",
+  "sdk_version": "0.1.0",
+  "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "os": "Windows",
+  "os_release": "11",
+  "machine": "AMD64",
+  "python_version": "3.12.0",
+  "timestamp": 1784692408.54
+}</code></pre>
+        <p class="code-label">POST /event</p>
+        <pre><code>{
+  "app": "FFT Analyzer",
+  "version": "1.0.0",
+  "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "event": "export_complete",
+  "payload": {
+    "rows": 120,
+    "format": "csv",
+    "site": "factory-a"
+  },
+  "timestamp": 1784692408.56
+}</code></pre>
+        <p class="code-label">POST /crash</p>
+        <pre><code>{
+  "app": "FFT Analyzer",
+  "version": "1.0.0",
+  "sdk_version": "0.1.0",
+  "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "exception": "ValueError",
+  "message": "boom",
+  "stacktrace": "Traceback (most recent call last):\\n  ...",
+  "os": "Windows",
+  "python_version": "3.12.0",
+  "timestamp": 1784692410.12
+}</code></pre>
+      </section>
+
+      <section>
+        <h2 data-i18n="s4title"></h2>
+        <p data-i18n="s4body"></p>
+        <ul>
+          <li><code>app</code>, <code>version</code>, <code>installation_id</code>, <code>timestamp</code></li>
+          <li><code>event</code> + <code>payload</code> (event only)</li>
+          <li><code>exception</code>, <code>message</code>, <code>stacktrace</code> (crash only)</li>
+        </ul>
+        <div class="note" data-i18n="payloadNote"></div>
+      </section>
+
+      <section>
+        <h2 data-i18n="s5title"></h2>
+        <p data-i18n="s5body"></p>
+      </section>
+
+      <section>
+        <h2 data-i18n="s6title"></h2>
+        <p data-i18n="s6body"></p>
+        <ul>
+          <li data-i18n="s6li1"></li>
+          <li data-i18n="s6li2"></li>
+          <li data-i18n="s6li3"></li>
+          <li data-i18n="s6li4"></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <span data-i18n="footer"></span>
+      <span>
+        <a href="./" data-i18n="home"></a>
+        ·
+        <a href="https://github.com/logballoon/logballoon-python">GitHub</a>
+      </span>
+    </footer>
+  </div>
+
+  <script>
+    const I18N = {
+      en: {
+        title: "Envelope contract",
+        lead: "Fixed outer fields for interoperability. Free-form payload for your app. You self-host the REST receiver.",
+        s1title: "Design rules",
+        s1body: "LogBalloon speaks a small JSON protocol. Keep the envelope stable; put product-specific data inside payload.",
+        s1li1: "Envelope fields are reserved by the SDK.",
+        s1li2: "payload is opaque to the SDK — your server interprets it.",
+        s1li3: "Delivery is at-least-once (duplicates are possible; make handlers idempotent if needed).",
+        s2title: "REST endpoints",
+        s2body: "Point the client endpoint at your own host. Accept JSON on these routes.",
+        thMethod: "Method",
+        thPath: "Path",
+        thPurpose: "Purpose",
+        epStartup: "App boot + environment snapshot",
+        epEvent: "Named event + free-form payload",
+        epCrash: "Uncaught exception + stack trace",
+        httpNote: "Request: Content-Type: application/json. Success: HTTP 2xx. Any other status keeps the item in the local queue for retry.",
+        s3title: "Example bodies",
+        s3body: "Field sets below match the current Python SDK (0.1.x). Extra unknown fields on the server side should be ignored safely.",
+        s4title: "What is fixed vs free",
+        s4body: "Treat these as the contract surface:",
+        payloadNote: "Customizability lives in payload (and in event names you choose). Do not overload reserved envelope keys.",
+        s5title: "Self-hosted server",
+        s5body: "There is no required SaaS backend. Run your own receiver (FastAPI, Flask, or the included demo server) and store or forward events as you like.",
+        s6title: "Lightweight client principles",
+        s6body: "The SDK targets weak PCs and constrained environments. Upcoming 0.1.1 work follows these rules:",
+        s6li1: "No heavy native deps; stdlib only.",
+        s6li2: "Background flush must stay cheap (small batches, backoff on failure).",
+        s6li3: "Queue must be bounded so disk and memory cannot grow without limit.",
+        s6li4: "Never block the app’s main work path for network I/O.",
+        footer: "LogBalloon protocol · v0.1.x",
+        home: "Home",
+      },
+      ja: {
+        title: "Envelope 契約",
+        lead: "相互運用のための外側フィールドは固定。アプリ固有データは payload へ。REST 受信サーバはセルフホストです。",
+        s1title: "設計ルール",
+        s1body: "LogBalloon は小さな JSON プロトコルです。envelope を安定させ、プロダクト固有のデータは payload に置きます。",
+        s1li1: "envelope のキーは SDK が予約します。",
+        s1li2: "payload は SDK にとって不透明で、解釈はサーバ側の仕事です。",
+        s1li3: "配送は at-least-once（重複しうるので、必要なら冪等に）。",
+        s2title: "REST エンドポイント",
+        s2body: "クライアントの endpoint を自前ホストへ向け、次の経路で JSON を受けてください。",
+        thMethod: "Method",
+        thPath: "Path",
+        thPurpose: "用途",
+        epStartup: "起動 + 環境スナップショット",
+        epEvent: "名前付きイベント + 自由な payload",
+        epCrash: "未捕捉例外 + スタックトレース",
+        httpNote: "Request: Content-Type: application/json。成功は HTTP 2xx。それ以外はローカルキューに残して再送します。",
+        s3title: "ボディ例",
+        s3body: "以下は現行 Python SDK（0.1.x）に対応。サーバは未知フィールドを無視できると安全です。",
+        s4title: "固定と自由",
+        s4body: "契約面として扱うフィールド:",
+        payloadNote: "カスタム性は payload（とイベント名）に置きます。予約済み envelope キーを流用しないでください。",
+        s5title: "セルフホストサーバ",
+        s5body: "必須の SaaS バックエンドはありません。自前の受信側（FastAPI / Flask / 同梱デモサーバ）で保存や転送をしてください。",
+        s6title: "軽量クライアント方針",
+        s6body: "弱い PC や制約環境を想定します。0.1.1 に向けても次を守ります:",
+        s6li1: "重いネイティブ依存なし。stdlib のみ。",
+        s6li2: "バックグラウンド送信は安価に（小さいバッチ、失敗時バックオフ）。",
+        s6li3: "キューに上限を設け、ディスク/メモリの無制限増大を防ぐ。",
+        s6li4: "アプリの主処理をネットワーク I/O で止めない。",
+        footer: "LogBalloon protocol · v0.1.x",
+        home: "ホーム",
+      },
+      zh: {
+        title: "Envelope 约定",
+        lead: "为保证互通，外层字段固定；业务数据放进 payload。REST 接收端由你自行托管。",
+        s1title: "设计规则",
+        s1body: "LogBalloon 使用精简的 JSON 协议。保持 envelope 稳定，把产品相关数据放进 payload。",
+        s1li1: "envelope 字段由 SDK 保留。",
+        s1li2: "payload 对 SDK 不透明，由服务端解释。",
+        s1li3: "投递为 at-least-once（可能重复，必要时做幂等）。",
+        s2title: "REST 端点",
+        s2body: "把客户端 endpoint 指到自有主机，并在以下路径接收 JSON。",
+        thMethod: "Method",
+        thPath: "Path",
+        thPurpose: "用途",
+        epStartup: "启动 + 环境快照",
+        epEvent: "命名事件 + 自由 payload",
+        epCrash: "未捕获异常 + 堆栈",
+        httpNote: "请求 Content-Type: application/json。成功为 HTTP 2xx。其他状态码会把条目留在本地队列重试。",
+        s3title: "示例正文",
+        s3body: "以下字段集对应当前 Python SDK（0.1.x）。服务端最好能安全忽略未知字段。",
+        s4title: "固定与自由",
+        s4body: "把这些视为约定面:",
+        payloadNote: "可定制性放在 payload（以及你选择的事件名）里。不要占用保留的 envelope 键。",
+        s5title: "自行托管服务端",
+        s5body: "不需要 SaaS 后端。用自建接收端（FastAPI / Flask / 仓库内演示服务）保存或转发即可。",
+        s6title: "轻量客户端原则",
+        s6body: "面向性能较弱的电脑与受限环境。0.1.1 也会遵循:",
+        s6li1: "无重型原生依赖，仅标准库。",
+        s6li2: "后台发送保持廉价（小批量、失败退避）。",
+        s6li3: "队列设上限，避免磁盘/内存无限增长。",
+        s6li4: "不因网络 I/O 阻塞应用主路径。",
+        footer: "LogBalloon protocol · v0.1.x",
+        home: "首页",
+      },
+    };
+
+    function detectLang() {
+      const q = new URLSearchParams(location.search).get("lang");
+      if (q && I18N[q]) return q;
+      const saved = localStorage.getItem("lb-lang");
+      if (saved && I18N[saved]) return saved;
+      const nav = (navigator.language || "en").toLowerCase();
+      if (nav.startsWith("ja")) return "ja";
+      if (nav.startsWith("zh")) return "zh";
+      return "en";
+    }
+
+    function applyLang(lang) {
+      const pack = I18N[lang] || I18N.en;
+      document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (pack[key] != null) el.innerHTML = pack[key];
+      });
+      document.querySelectorAll("[data-set-lang]").forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.getAttribute("data-set-lang") === lang));
+      });
+      localStorage.setItem("lb-lang", lang);
+      const url = new URL(location.href);
+      url.searchParams.set("lang", lang);
+      history.replaceState(null, "", url);
+    }
+
+    document.querySelectorAll("[data-set-lang]").forEach((btn) => {
+      btn.addEventListener("click", () => applyLang(btn.getAttribute("data-set-lang")));
+    });
+    applyLang(detectLang());
+  </script>
+</body>
+</html>
