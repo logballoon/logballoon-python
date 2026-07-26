@@ -113,6 +113,7 @@ def test_transport_headers_override_api_key() -> None:
 
 
 def test_client_rejects_wrong_api_key(tmp_path: Path) -> None:
+    """Wrong API key yields permanent 401 — items are dropped, not retried forever."""
     server, received, _ = _start_server(required_api_key="correct")
     host, port = server.server_address
     try:
@@ -127,7 +128,7 @@ def test_client_rejects_wrong_api_key(tmp_path: Path) -> None:
         )
         lb.start()
         assert lb.flush(timeout=2.0) == 0
-        assert lb.pending() >= 1
+        assert lb.pending() == 0
         assert received == []
         lb.stop(flush=False)
     finally:
@@ -197,6 +198,7 @@ def test_event_payload_is_free_form(tmp_path: Path) -> None:
         assert body["event"] == "export_complete"
         assert body["payload"] == {"rows": 120, "format": "csv"}
         assert "installation_id" in body
+        assert "message_id" in body
         lb.stop()
     finally:
         server.shutdown()
@@ -284,6 +286,19 @@ def test_queue_drops_oldest_when_full(tmp_path: Path) -> None:
     assert nums == [2, 3, 4]
 
 
+def test_queue_prefers_crash_and_user_when_full(tmp_path: Path) -> None:
+    q = OfflineQueue(tmp_path / "q.sqlite3", max_items=3)
+    q.enqueue("event", {"n": 1})
+    q.enqueue("event", {"n": 2})
+    q.enqueue("crash", {"n": 3})
+    q.enqueue("user", {"n": 4})  # should drop events first
+    assert q.count() == 3
+    kinds = [item["kind"] for item in q.peek(10)]
+    assert "crash" in kinds
+    assert "user" in kinds
+    assert kinds.count("event") == 1
+
+
 def test_backoff_grows_then_caps(tmp_path: Path) -> None:
     lb = LogBalloon(
         app_name="TestApp",
@@ -322,8 +337,19 @@ def test_contact_store_register_skip_and_defer(tmp_path: Path) -> None:
     store.save(data)
     assert store.should_prompt()
 
-    store.register("user@example.com", consent_version=1)
+    store.register("user@example.com", consent_version=1, skip_days=14)
     assert store.load()["email"] == "user@example.com"
+    assert not store.should_prompt()  # quiet after register/OK
+
+    # Expire quiet period → confirm again
+    data = store.load()
+    data["skip_until"] = 1.0
+    store.save(data)
+    assert store.should_prompt()
+
+    store.confirm(consent_version=1, skip_days=14)
+    assert not store.should_prompt()
+
     store.defer(skip_days=14)
     assert store.load()["status"] == "registered"
     assert not store.should_prompt()
@@ -384,11 +410,16 @@ def test_contact_prompt_confirm_and_offline_queue(tmp_path: Path) -> None:
     from logballoon.contact import ContactStore
 
     store = ContactStore(tmp_path / "lb" / "TestApp" / "contact.json")
-    store.register("kept@example.com", consent_version=1)
+    store.register("kept@example.com", consent_version=1, skip_days=14)
+    # Expire quiet period so confirm is due.
+    data = store.load()
+    data["skip_until"] = 1.0
+    store.save(data)
 
     lb.start()
     lb.enable_contact_prompt(ui="custom", prompt_fn=fake_prompt)
     assert calls == ["confirm"]
+    assert not store.should_prompt()  # OK applies quiet period
     assert lb.flush(timeout=1.0) == 0  # offline
     assert lb.pending() >= 2  # startup + user confirm
     kinds = [item["kind"] for item in lb._queue.peek(10)]
@@ -396,6 +427,7 @@ def test_contact_prompt_confirm_and_offline_queue(tmp_path: Path) -> None:
     user_item = next(i for i in lb._queue.peek(10) if i["kind"] == "user")
     assert user_item["payload"]["action"] == "confirm"
     assert user_item["payload"]["email"] == "kept@example.com"
+    assert "message_id" in user_item["payload"]
     lb.stop(flush=False)
 
 
@@ -472,4 +504,64 @@ def test_contact_prompt_uses_explicit_lang(tmp_path: Path) -> None:
     lb.enable_contact_prompt(ui="custom", lang="ja", prompt_fn=fake_prompt)
     assert seen["lang"] == "ja"
     assert "メール" in seen["message"]
+    lb.stop(flush=False)
+
+
+def test_permanent_http_error_drops_item(tmp_path: Path) -> None:
+    """401/4xx permanent errors should not clog the queue forever."""
+    received: list[dict] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt: str, *args) -> None:
+            return
+
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            received.append({"path": self.path, "body": body})
+            self.send_response(401)
+            self.end_headers()
+            self.wfile.write(b'{"ok":false}')
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        lb = LogBalloon(
+            app_name="TestApp",
+            version="0.0.1",
+            endpoint=f"http://{host}:{port}",
+            data_root=tmp_path / "lb",
+            install_excepthook=False,
+            flush_interval=60.0,
+        )
+        lb.start()
+        lb.event("will_fail", {"x": 1})
+        # Permanent 401 → items dropped (delivered count is 0, pending 0)
+        assert lb.flush(timeout=3.0) == 0
+        assert lb.pending() == 0
+        assert len(received) >= 1
+        lb.stop(flush=False)
+    finally:
+        server.shutdown()
+
+
+def test_max_attempts_drops_poison(tmp_path: Path) -> None:
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+        flush_interval=60.0,
+        max_attempts=2,
+    )
+    lb.start()
+    # Force high attempt counts on everything currently queued.
+    for item in lb._queue.peek(20):
+        for _ in range(3):
+            lb._queue.mark_attempt(item["id"])
+    assert lb.flush(timeout=2.0) == 0
+    assert lb.pending() == 0
     lb.stop(flush=False)

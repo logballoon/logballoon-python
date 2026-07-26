@@ -1,7 +1,7 @@
 # 仕様メモ: 連絡先プロンプト（Contact Prompt）
 
-ステータス: **実装済み（MVP: Phase B–D）**  
-対象バージョン: **0.1.4**（`POST /user` + `enable_contact_prompt(ui="tk")`）  
+ステータス: **実装済み（0.1.6: 静穏期間・message_id・優先キュー・4xx打ち切り）**  
+対象バージョン: **0.1.6**  
 最終更新: 2026-07-26
 
 ---
@@ -84,8 +84,10 @@ unset
 
 registered
   └─ 確認ダイアログ「このメールで連絡してよい？」
-        ├─ Yes（OK）           → そのまま（必要なら last_confirmed_at 更新）
+        ├─ Yes（OK）           → registered 維持 + skip_until = now + skip_days
+                                 + POST /user action=confirm
         ├─ 変更                → 入力ダイアログへ → registered 更新 + POST /user
+                                 + skip_until = now + skip_days
         └─ 今回は出さない      → 次回表示を skip_days 後まで延期
                                  （registered は維持。メールは消さない）
 
@@ -97,8 +99,9 @@ skipped
 ### UX 方針（合意）
 
 - **毎回フル入力はしない**
-- 登録済みなら **確認 1 回**（Yes / 変更 / 今回は出さない）
-- スキップや「今回は出さない」には **間隔**（デフォルト案: 14 日）を置く
+- 登録済みなら **確認ダイアログ**（Yes / 変更 / 今回は出さない）
+- **OK / 登録 / スキップ / 今回は出さない** のいずれも `skip_days`（デフォルト 14）静かにする
+- 静穏期間後に再度確認する（毎起動は出さない）
 
 ---
 

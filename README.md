@@ -102,14 +102,17 @@ That gives you:
 - custom events
 - uncaught exception / crash capture
 - SQLite offline queue with retry
+- a stable `message_id` (UUID) on every outbound item for server-side idempotency
 
 `event()` only enqueues — network I/O stays on a background thread, so your UI
-never blocks.
+never blocks. (The optional contact dialog is the exception: it is modal on the
+calling thread.)
 
 ## Custom payloads
 
 The **envelope is fixed** for interoperability (`app`, `version`,
-`installation_id`, `event`, `timestamp`, …). The **`payload` dict is yours**:
+`installation_id`, `message_id`, `event`, `timestamp`, …). The **`payload` dict
+is yours**:
 
 ```python
 lb.event("job_done", {
@@ -165,7 +168,7 @@ lb.start()
 lb.enable_contact_prompt(
     ui="tk",             # stdlib Tkinter, imported only when used
     on=("startup",),     # startup only for now
-    skip_days=14,        # quiet period after Skip / Not now
+    skip_days=14,        # quiet after OK / register / Skip / Not now
     message=None,        # optional; default body follows OS language
     lang=None,           # auto from OS UI language (en / ja / zh); or "ja"
     consent_version=1,
@@ -175,12 +178,16 @@ lb.enable_contact_prompt(
 Behaviour:
 
 - **First run:** enter an email, or Skip
-- **Later runs:** confirm the saved address (OK / Change / Not now)
-- **Skip or Not now:** stays quiet for `skip_days`
+- **Later runs (after quiet period):** confirm the saved address (OK / Change / Not now)
+- **OK, register, Skip, or Not now:** stays quiet for `skip_days` (default 14)
 - **Language:** default body and buttons follow the OS UI language (`en` / `ja` /
   `zh`). Override with `lang="ja"` or a custom `message=`
-- Email is stored in `contact.json` next to `installation_id` and sent to
-  `POST /user` — never mixed into event payloads
+- Call `enable_contact_prompt` on the **UI / main thread** when using `ui="tk"`
+  (the dialog is modal)
+- Email is stored in plain text as `contact.json` next to `installation_id` and
+  sent to `POST /user` — never mixed into event payloads
+- Local state updates immediately; delivery is offline-capable, so the server
+  may lag behind what the user just confirmed
 
 Design notes and rationale: [`docs/contact-prompt-spec.md`](docs/contact-prompt-spec.md).
 
@@ -196,14 +203,27 @@ JSON on four simple routes.
 | `POST` | `/crash` | Exception + stack trace |
 | `POST` | `/user` | Contact email (`register` / `update` / `confirm`) |
 
-Success is any HTTP 2xx. Anything else keeps the item queued for retry, so
-delivery is **at-least-once** — make your handlers idempotent if duplicates
-matter.
+Success is any HTTP 2xx. Delivery is **at-least-once**: every item carries a
+`message_id` so your server can de-duplicate. Transient failures (network, 5xx,
+408, 429) keep the item queued. **Permanent 4xx** (400, 401, 403, 404, …) and
+items that exceed `max_attempts` are dropped so a bad key or poison payload
+cannot clog the queue forever.
 
 Receivers in this repo:
 
 - `examples/demo_server.py` — stdlib only, optional `--api-key` / `LOGBALLOON_API_KEY`
 - `examples/fastapi_server.py` — FastAPI version of the same routes
+
+### Production receiver checklist
+
+Before pointing real users at an endpoint:
+
+1. **TLS** — use HTTPS; do not put shared secrets on plain HTTP
+2. **Auth** — require `Authorization: Bearer …` or your gateway equivalent
+3. **Idempotency** — key on `message_id` (and optionally `installation_id`)
+4. **Retention** — decide how long you keep events, crashes, and emails
+5. **PII** — treat `/user` email and crash stack traces as sensitive
+6. **Access** — do not expose a write-open receiver on the public internet
 
 Full envelope examples: [Protocol page](https://logballoon.github.io/logballoon-python/protocol.html).
 
@@ -212,9 +232,12 @@ Full envelope examples: [Protocol page](https://logballoon.github.io/logballoon-
 Built for weak PCs and flaky networks:
 
 - small flush batches (`batch_size=20`)
-- bounded queue (`max_queue=1000`, drops oldest first)
-- exponential backoff on failure (capped by `max_backoff`)
-- background delivery only — never on the calling thread
+- bounded queue (`max_queue=1000`); when full, drop `event` / `startup` before
+  `user` / `crash`
+- exponential backoff on transient failure (capped by `max_backoff`)
+- drop permanent 4xx and items past `max_attempts` (default 40)
+- background delivery only — never on the calling thread (except the optional
+  contact dialog)
 
 ## Client API
 
@@ -228,8 +251,8 @@ Built for weak PCs and flaky networks:
 | `pending()` | Items still waiting locally |
 
 Constructor options: `app_name`, `version`, `endpoint`, `api_key`, `headers`,
-`flush_interval`, `batch_size`, `max_queue`, `max_backoff`, `timeout`,
-`install_excepthook`, `data_root`.
+`flush_interval`, `batch_size`, `max_queue`, `max_backoff`, `max_attempts`,
+`timeout`, `install_excepthook`, `data_root`.
 
 ## Design
 

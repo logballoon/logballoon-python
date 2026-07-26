@@ -9,9 +9,24 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urljoin
 
+# Client / auth / not-found style errors are unlikely to succeed on retry.
+# 408 / 429 are treated as transient (timeout / rate limit).
+_PERMANENT_HTTP = frozenset({400, 401, 403, 404, 405, 410, 413, 414, 415, 422})
+
 
 class TransportError(Exception):
     """Raised when an HTTP request fails."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        permanent: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.permanent = permanent
 
 
 class Transport:
@@ -44,11 +59,19 @@ class Transport:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 status = getattr(response, "status", None) or response.getcode()
                 if status is None or status >= 400:
-                    raise TransportError(f"HTTP {status} for {path}")
+                    raise TransportError(
+                        f"HTTP {status} for {path}",
+                        status_code=status,
+                        permanent=_is_permanent(status),
+                    )
                 # Drain body so the connection can close cleanly.
                 response.read()
         except urllib.error.HTTPError as exc:
-            raise TransportError(f"HTTP {exc.code} for {path}: {exc.reason}") from exc
+            raise TransportError(
+                f"HTTP {exc.code} for {path}: {exc.reason}",
+                status_code=exc.code,
+                permanent=_is_permanent(exc.code),
+            ) from exc
         except urllib.error.URLError as exc:
             raise TransportError(f"Network error for {path}: {exc.reason}") from exc
         except TimeoutError as exc:
@@ -62,8 +85,14 @@ class Transport:
             "user": "/user",
         }.get(kind)
         if path is None:
-            raise TransportError(f"Unknown kind: {kind}")
+            raise TransportError(f"Unknown kind: {kind}", permanent=True)
         self.post(path, payload)
+
+
+def _is_permanent(status: int | None) -> bool:
+    if status is None:
+        return False
+    return int(status) in _PERMANENT_HTTP
 
 
 def _build_headers(

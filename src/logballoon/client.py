@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import traceback
+import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Callable
@@ -36,17 +37,21 @@ class LogBalloon:
         batch_size: int = 20,
         max_queue: int = 1000,
         max_backoff: float = 120.0,
+        max_attempts: int = 40,
         timeout: float = 5.0,
         install_excepthook: bool = True,
         data_root: str | Path | None = None,
         api_key: str | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> None:
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be >= 1")
         self.app_name = app_name
         self.version = version
         self.flush_interval = flush_interval
         self.batch_size = batch_size
         self.max_backoff = max_backoff
+        self.max_attempts = max_attempts
         self.install_excepthook = install_excepthook
 
         # data_root: override for tests / custom storage. Default is OS user data dir.
@@ -94,10 +99,10 @@ class LogBalloon:
             return
         self._started = True
 
-        payload = {
+        payload = self._stamp({
             **self._env,
             "timestamp": time.time(),
-        }
+        })
         self._queue.enqueue("startup", payload)
 
         if self.install_excepthook:
@@ -135,6 +140,10 @@ class LogBalloon:
         ``lang`` defaults to auto-detect from the OS UI language (``en`` / ``ja`` /
         ``zh``). Pass an explicit code to override. ``message`` overrides only the
         body text; button labels still follow ``lang``.
+
+        Call this on the UI / main thread when using ``ui=\"tk\"`` — the dialog is
+        modal. After OK / register / Skip / Not now, the prompt stays quiet for
+        ``skip_days`` (default 14).
         """
         triggers = tuple(on)
         for name in triggers:
@@ -165,14 +174,14 @@ class LogBalloon:
 
     def event(self, name: str, payload: dict[str, Any] | None = None) -> None:
         """Enqueue an application event (non-blocking)."""
-        body = {
+        body = self._stamp({
             "app": self.app_name,
             "version": self.version,
             "installation_id": self.installation_id,
             "event": name,
             "payload": payload or {},
             "timestamp": time.time(),
-        }
+        })
         self._queue.enqueue("event", body)
         # Wake the worker, but do not send on the caller thread.
         self._wake.set()
@@ -207,6 +216,12 @@ class LogBalloon:
         """Number of items waiting in the local queue."""
         return self._queue.count()
 
+    def _stamp(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Attach a stable message_id for at-least-once idempotency on the server."""
+        if "message_id" not in body:
+            body = {**body, "message_id": str(uuid.uuid4())}
+        return body
+
     def _maybe_prompt_contact(self) -> None:
         if self._contact is None:
             return
@@ -222,6 +237,7 @@ class LogBalloon:
         state = self._contact.load()
         status = state.get("status", "unset")
         message = self._contact_message or default_contact_message(self._contact_lang)
+        quiet = self._contact_skip_days
 
         if status == "registered" and state.get("email"):
             result = self._invoke_contact_ui(
@@ -231,7 +247,10 @@ class LogBalloon:
             )
             action = result.get("action")
             if action == "ok":
-                self._contact.confirm(consent_version=self._contact_consent_version)
+                self._contact.confirm(
+                    consent_version=self._contact_consent_version,
+                    skip_days=quiet,
+                )
                 self._enqueue_user(
                     email=str(state["email"]),
                     action="confirm",
@@ -239,13 +258,14 @@ class LogBalloon:
             elif action == "change":
                 self._prompt_register(message=message, initial=str(state["email"]))
             elif action in {"defer", "cancel", "skip"}:
-                self._contact.defer(skip_days=self._contact_skip_days)
+                self._contact.defer(skip_days=quiet)
             return
 
         self._prompt_register(message=message, initial="")
 
     def _prompt_register(self, *, message: str, initial: str) -> None:
         assert self._contact is not None
+        quiet = self._contact_skip_days
         while True:
             result = self._invoke_contact_ui(
                 mode="register",
@@ -254,10 +274,10 @@ class LogBalloon:
             )
             action = result.get("action")
             if action in {"skip", "cancel", "defer"}:
-                self._contact.skip(skip_days=self._contact_skip_days)
+                self._contact.skip(skip_days=quiet)
                 return
             if action != "submit":
-                self._contact.skip(skip_days=self._contact_skip_days)
+                self._contact.skip(skip_days=quiet)
                 return
             email = str(result.get("email") or "")
             if not is_plausible_email(email):
@@ -272,11 +292,15 @@ class LogBalloon:
             )
             if action_name == "update":
                 self._contact.update_email(
-                    email, consent_version=self._contact_consent_version
+                    email,
+                    consent_version=self._contact_consent_version,
+                    skip_days=quiet,
                 )
             else:
                 self._contact.register(
-                    email, consent_version=self._contact_consent_version
+                    email,
+                    consent_version=self._contact_consent_version,
+                    skip_days=quiet,
                 )
             self._enqueue_user(email=email.strip(), action=action_name)
             return
@@ -307,25 +331,25 @@ class LogBalloon:
         raise RuntimeError(f"No contact UI available for {self._contact_ui!r}")
 
     def _enqueue_user(self, *, email: str, action: str) -> None:
-        body = {
+        body = self._stamp({
             **self._env,
             "email": email.strip(),
             "action": action,
             "consent_version": self._contact_consent_version,
             "timestamp": time.time(),
-        }
+        })
         self._queue.enqueue("user", body)
         self._wake.set()
 
     def _excepthook(self, exc_type, exc, tb) -> None:
         try:
-            body = {
+            body = self._stamp({
                 **self._env,
                 "exception": exc_type.__name__ if exc_type else "Exception",
                 "message": str(exc),
                 "stacktrace": "".join(traceback.format_exception(exc_type, exc, tb)),
                 "timestamp": time.time(),
-            }
+            })
             self._queue.enqueue("crash", body)
             # Best-effort immediate send; queue remains if offline.
             self._flush_once()
@@ -369,11 +393,29 @@ class LogBalloon:
             delivered = 0
             for item in items:
                 self._queue.mark_attempt(item["id"])
+                attempts = int(item["attempts"]) + 1
+                if attempts > self.max_attempts:
+                    logger.warning(
+                        "Dropping %s after %s attempts (max_attempts=%s)",
+                        item["kind"],
+                        attempts,
+                        self.max_attempts,
+                    )
+                    self._queue.delete(item["id"])
+                    continue
                 try:
                     self._transport.send(item["kind"], item["payload"])
                 except TransportError as exc:
+                    if exc.permanent:
+                        logger.warning(
+                            "Dropping %s after permanent error: %s",
+                            item["kind"],
+                            exc,
+                        )
+                        self._queue.delete(item["id"])
+                        continue
                     logger.debug("Delivery failed (%s): %s", item["kind"], exc)
-                    # Stop this pass; keep remaining items for later retry.
+                    # Transient failure: stop this pass; retry later.
                     break
                 self._queue.delete(item["id"])
                 delivered += 1

@@ -29,5 +29,8 @@ jobs:
       - name: Test
         run: python -m pytest -q
 
+      - name: Local smoke (try_local)
+        run: python examples/try_local.py
+
       - name: Check docs i18n keys
         run: python scripts/check_i18n.py

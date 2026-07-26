@@ -47,7 +47,6 @@ class ContactStore:
         """Return True when a contact dialog should be shown."""
         now = time.time() if now is None else now
         state = self.load()
-        status = state.get("status", "unset")
         skip_until = state.get("skip_until")
         if skip_until is not None:
             try:
@@ -55,27 +54,47 @@ class ContactStore:
                     return False
             except (TypeError, ValueError):
                 pass
-        if status in {"unset", "skipped", "registered"}:
-            return True
-        return True
+        status = state.get("status", "unset")
+        return status in {"unset", "skipped", "registered"}
 
-    def register(self, email: str, *, consent_version: int) -> dict[str, Any]:
+    def register(
+        self,
+        email: str,
+        *,
+        consent_version: int,
+        skip_days: float = 14.0,
+    ) -> dict[str, Any]:
+        """Save email and stay quiet until skip_days elapses (then re-confirm)."""
         now = time.time()
         data = {
             "status": "registered",
             "email": email.strip(),
             "updated_at": now,
             "last_confirmed_at": now,
-            "skip_until": None,
+            "skip_until": now + float(skip_days) * 86400.0,
             "consent_version": consent_version,
         }
         self.save(data)
         return data
 
-    def update_email(self, email: str, *, consent_version: int) -> dict[str, Any]:
-        return self.register(email, consent_version=consent_version)
+    def update_email(
+        self,
+        email: str,
+        *,
+        consent_version: int,
+        skip_days: float = 14.0,
+    ) -> dict[str, Any]:
+        return self.register(
+            email, consent_version=consent_version, skip_days=skip_days
+        )
 
-    def confirm(self, *, consent_version: int) -> dict[str, Any]:
+    def confirm(
+        self,
+        *,
+        consent_version: int,
+        skip_days: float = 14.0,
+    ) -> dict[str, Any]:
+        """User confirmed the saved email — quiet until skip_days."""
         state = self.load()
         email = str(state.get("email") or "").strip()
         now = time.time()
@@ -84,7 +103,7 @@ class ContactStore:
             "email": email,
             "updated_at": state.get("updated_at", now),
             "last_confirmed_at": now,
-            "skip_until": None,
+            "skip_until": now + float(skip_days) * 86400.0,
             "consent_version": consent_version,
         }
         self.save(data)
@@ -97,7 +116,7 @@ class ContactStore:
             "email": None,
             "updated_at": now,
             "last_confirmed_at": None,
-            "skip_until": now + skip_days * 86400.0,
+            "skip_until": now + float(skip_days) * 86400.0,
             "consent_version": None,
         }
         self.save(data)
@@ -112,7 +131,7 @@ class ContactStore:
             "email": state.get("email"),
             "updated_at": state.get("updated_at", now),
             "last_confirmed_at": state.get("last_confirmed_at"),
-            "skip_until": now + skip_days * 86400.0,
+            "skip_until": now + float(skip_days) * 86400.0,
             "consent_version": state.get("consent_version"),
         }
         self.save(data)
