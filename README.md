@@ -155,7 +155,57 @@ lb = LogBalloon(
 Read secrets from env vars or config files rather than hard-coding them. If both
 `api_key` and `headers` set `Authorization`, **`headers` wins**.
 
-## Optional contact prompt
+## Contact API: bring your own UI
+
+All frameworks use the same headless API. Your UI only decides **when to ask**
+and **which button the user clicked**; LogBalloon owns local state and queues
+the matching `POST /user`.
+
+```python
+# Before showing your own dialog / form:
+if lb.should_prompt_contact():
+    state = lb.contact_state()
+    # state["status"]: "unset", "skipped", or "registered"
+    # state.get("email"): saved address, when registered
+
+# User entered or changed an email:
+message_id = lb.submit_contact(
+    "user@example.com",
+    skip_days=14,
+    consent_version=1,
+)
+
+# User approved the already-saved address:
+message_id = lb.confirm_contact(skip_days=14, consent_version=1)
+
+# User clicked Skip (no email is sent):
+lb.skip_contact(skip_days=14)
+
+# User clicked Not now (keep saved email, send nothing):
+lb.defer_contact(skip_days=14)
+```
+
+`submit_contact()` automatically chooses `action=register` or `action=update`.
+`confirm_contact()` uses `action=confirm`. Both save locally first, enqueue a
+`user` item, and return its stable `message_id`; they do not wait for the
+network. Skip and defer only update local state and do not call `/user`.
+
+| Public method | Local state | Queued request |
+|---|---|---|
+| `contact_state()` | Read | None |
+| `should_prompt_contact()` | Read | None |
+| `submit_contact(email)` | Save email + quiet period | `/user`, register/update |
+| `confirm_contact()` | Refresh quiet period | `/user`, confirm |
+| `skip_contact()` | No email + quiet period | None |
+| `defer_contact()` | Keep email + quiet period | None |
+
+This is the recommended integration point for Qt, Streamlit, Flask, FastAPI,
+Django, or any other UI. LogBalloon intentionally does not detect or import
+those frameworks. A complete terminal-based mapping is in
+[`examples/custom_contact_ui.py`](examples/custom_contact_ui.py); replace its
+`input()` calls with your framework's widgets or form handlers.
+
+## Optional built-in Tk contact prompt
 
 Sometimes you need to reach the person running your app — `installation_id`
 alone cannot tell you who they are. LogBalloon can ask for an email, remember
@@ -188,6 +238,9 @@ Behaviour:
   sent to `POST /user` — never mixed into event payloads
 - Local state updates immediately; delivery is offline-capable, so the server
   may lag behind what the user just confirmed
+
+The Tk helper is only a UI adapter; internally it calls the same public Contact
+API shown above.
 
 Design notes and rationale: [`docs/contact-prompt-spec.md`](docs/contact-prompt-spec.md).
 
@@ -245,6 +298,12 @@ Built for weak PCs and flaky networks:
 |---|---|
 | `start()` | Enqueue startup and begin background delivery |
 | `event(name, payload=None)` | Enqueue a custom event |
+| `contact_state()` | Read local contact status/email |
+| `should_prompt_contact()` | Check whether your own UI should ask now |
+| `submit_contact(email, ...)` | Save and queue register/update to `/user` |
+| `confirm_contact(...)` | Queue confirmation for the saved email |
+| `skip_contact(...)` | Skip locally; no `/user` request |
+| `defer_contact(...)` | Keep email and defer locally; no `/user` request |
 | `enable_contact_prompt(...)` | Opt in to the contact (email) dialog |
 | `flush(timeout=None)` | Send pending queue items now |
 | `stop(flush=True)` | Stop the worker |

@@ -355,6 +355,79 @@ def test_contact_store_register_skip_and_defer(tmp_path: Path) -> None:
     assert not store.should_prompt()
 
 
+def test_headless_contact_api_queues_register_update_and_confirm(
+    tmp_path: Path,
+) -> None:
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+        flush_interval=60.0,
+    )
+
+    assert lb.contact_state() == {"status": "unset"}
+    assert lb.should_prompt_contact()
+
+    register_id = lb.submit_contact(
+        " first@example.com ",
+        skip_days=14,
+        consent_version=2,
+    )
+    state = lb.contact_state()
+    assert state["status"] == "registered"
+    assert state["email"] == "first@example.com"
+    assert state["consent_version"] == 2
+    assert not lb.should_prompt_contact()
+
+    register = lb._queue.peek(10)[0]
+    assert register["kind"] == "user"
+    assert register["payload"]["action"] == "register"
+    assert register["payload"]["message_id"] == register_id
+
+    update_id = lb.submit_contact("new@example.com")
+    confirm_id = lb.confirm_contact()
+    users = [item for item in lb._queue.peek(10) if item["kind"] == "user"]
+    assert [item["payload"]["action"] for item in users] == [
+        "register",
+        "update",
+        "confirm",
+    ]
+    assert users[1]["payload"]["message_id"] == update_id
+    assert users[2]["payload"]["message_id"] == confirm_id
+
+    lb.defer_contact(skip_days=7)
+    assert not lb.should_prompt_contact()
+    lb.stop(flush=False)
+
+
+def test_headless_contact_api_skip_and_validation(tmp_path: Path) -> None:
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+    )
+
+    lb.skip_contact(skip_days=14)
+    assert lb.contact_state()["status"] == "skipped"
+    assert not lb.should_prompt_contact()
+    assert lb.pending() == 0  # Skip has no email, so /user is not queued.
+
+    for operation in (
+        lambda: lb.submit_contact("not-an-email"),
+        lambda: lb.confirm_contact(),
+        lambda: lb.defer_contact(),
+    ):
+        try:
+            operation()
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+
+
 def test_contact_prompt_register_queues_user(tmp_path: Path) -> None:
     server, received, _ = _start_server()
     host, port = server.server_address

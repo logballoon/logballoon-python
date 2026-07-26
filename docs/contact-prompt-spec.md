@@ -1,7 +1,7 @@
 # 仕様メモ: 連絡先プロンプト（Contact Prompt）
 
-ステータス: **実装済み（0.1.6: 静穏期間・message_id・優先キュー・4xx打ち切り）**  
-対象バージョン: **0.1.6**  
+ステータス: **実装済み（0.1.8: フレームワーク非依存 Contact API 公開）**  
+対象バージョン: **0.1.8**  
 最終更新: 2026-07-26
 
 ---
@@ -61,7 +61,40 @@ lb.enable_contact_prompt(
 
 - `enable_contact_prompt` を呼ばない限り、状態ファイルも UI も触らない
 - UI 実装が無い `ui` 値は明確にエラー（黙って無視しない）
-- Web 系（Flask / Streamlit 等）は別フェーズ。埋め込み部品として後続検討
+- Web / GUI 系は公開 Contact API を使って各アプリが UI を実装する
+
+---
+
+## 3.1 フレームワーク非依存 API（実装済み）
+
+Tk / Qt / Web といった UI 層から、次の公開 API だけを使う。
+全送信は `POST /user` に集約し、フレームワーク別プロトコルは作らない。
+
+```python
+if lb.should_prompt_contact():
+    state = lb.contact_state()
+
+lb.submit_contact("user@example.com")  # register / update を自動選択
+lb.confirm_contact()                   # confirm
+lb.skip_contact()                      # ローカルのみ、送信なし
+lb.defer_contact()                     # メール維持、送信なし
+```
+
+| メソッド | ローカル状態 | キュー |
+|---|---|---|
+| `contact_state()` | 読み取り | なし |
+| `should_prompt_contact()` | 読み取り | なし |
+| `submit_contact()` | メール保存・静穏期間更新 | `user` register/update |
+| `confirm_contact()` | 確認日時・静穏期間更新 | `user` confirm |
+| `skip_contact()` | skipped・静穏期間更新 | なし |
+| `defer_contact()` | メール維持・静穏期間更新 | なし |
+
+方針:
+
+- UI コンポーネントは原則として各アプリが作る
+- SDK は各 UI フレームワークを自動検知しない
+- Qt / Streamlit / Flask / FastAPI / Django の公式アダプタは、具体的な要望が出るまで作らない
+- 組み込み Tk も、この公開 API を呼ぶだけの薄いアダプタとする
 
 ---
 
@@ -161,7 +194,7 @@ crash を後で足すときの前提（Phase F）:
 {
   "app": "logballoon_test_app",
   "version": "1.0.0",
-  "sdk_version": "0.1.3",
+  "sdk_version": "0.1.8",
   "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "email": "user@example.com",
   "action": "register",
@@ -215,7 +248,7 @@ crash を後で足すときの前提（Phase F）:
 
 - `logballoon/ui/tk.py` を作り、`enable_contact_prompt(ui="tk")` の中でだけ import
 - `ImportError` 時は分かりやすく案内（Linux 例: `sudo apt install python3-tk`）
-- **本物の extras は将来の外部 UI 用に予約**（例: `logballoon[pyside6]`、`logballoon[pyqt6]`）。バージョン制約もそこで表現する
+- 外部 UI の extras は具体的な要望が Issue で出るまで追加しない
 
 デフォルト文言（案・日本語アプリ向けは呼び出し側で上書き推奨）:
 
@@ -261,7 +294,7 @@ crash を後で足すときの前提（Phase F）:
 | **C** | `enable_contact_prompt(ui="tk")` + 確認/スキップ間隔（startup のみ） | B |
 | **D** | デモサーバ `/user`、README、protocol 更新 | B/C |
 | **E** | FastAPI 受信サンプル（疎通用） | D と独立でも可 |
-| **F** | crash トリガー（次回起動フラグ方式）、PySide6 等の extras | C の運用後 |
+| **F** | crash トリガー（次回起動フラグ方式） | C の運用後 |
 
 連絡先 UI 本体より先に **B（運ぶ仕組み）** を固めると、シンプル思想を壊しにくい。
 

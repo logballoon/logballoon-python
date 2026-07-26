@@ -83,7 +83,8 @@ class LogBalloon:
         self._started = False
         self._previous_excepthook = None
 
-        # Contact prompt is opt-in; untouched until enable_contact_prompt().
+        # Contact storage is lazy; untouched until a public Contact API or
+        # enable_contact_prompt() is explicitly called.
         self._contact: ContactStore | None = None
         self._contact_ui: str | None = None
         self._contact_on: tuple[str, ...] = ()
@@ -216,6 +217,105 @@ class LogBalloon:
         """Number of items waiting in the local queue."""
         return self._queue.count()
 
+    def contact_state(self) -> dict[str, Any]:
+        """Return the locally stored contact state.
+
+        This is UI-framework independent. Merely reading the state does not
+        display a dialog or send a request.
+        """
+        return dict(self._contact_store().load())
+
+    def should_prompt_contact(self) -> bool:
+        """Return whether a custom UI should ask for contact information now."""
+        return self._contact_store().should_prompt()
+
+    def submit_contact(
+        self,
+        email: str,
+        *,
+        skip_days: float = 14,
+        consent_version: int = 1,
+    ) -> str:
+        """Save an email and enqueue register/update for ``POST /user``.
+
+        Returns the stable ``message_id`` of the queued request. Network I/O
+        remains asynchronous and offline-capable.
+        """
+        if skip_days < 0:
+            raise ValueError("skip_days must be >= 0")
+        if not is_plausible_email(email):
+            raise ValueError("email must be non-empty and contain '@'")
+
+        store = self._contact_store()
+        previous = store.load()
+        action = (
+            "update"
+            if previous.get("status") == "registered" and previous.get("email")
+            else "register"
+        )
+        if action == "update":
+            store.update_email(
+                email,
+                consent_version=consent_version,
+                skip_days=skip_days,
+            )
+        else:
+            store.register(
+                email,
+                consent_version=consent_version,
+                skip_days=skip_days,
+            )
+        return self._enqueue_user(
+            email=email.strip(),
+            action=action,
+            consent_version=consent_version,
+        )
+
+    def confirm_contact(
+        self,
+        *,
+        skip_days: float = 14,
+        consent_version: int = 1,
+    ) -> str:
+        """Confirm the saved email and enqueue ``action=confirm``."""
+        if skip_days < 0:
+            raise ValueError("skip_days must be >= 0")
+        store = self._contact_store()
+        state = store.load()
+        email = str(state.get("email") or "").strip()
+        if state.get("status") != "registered" or not is_plausible_email(email):
+            raise ValueError("no registered contact email to confirm")
+        store.confirm(
+            consent_version=consent_version,
+            skip_days=skip_days,
+        )
+        return self._enqueue_user(
+            email=email,
+            action="confirm",
+            consent_version=consent_version,
+        )
+
+    def skip_contact(self, *, skip_days: float = 14) -> None:
+        """Record Skip without sending an email to the server."""
+        if skip_days < 0:
+            raise ValueError("skip_days must be >= 0")
+        self._contact_store().skip(skip_days=skip_days)
+
+    def defer_contact(self, *, skip_days: float = 14) -> None:
+        """Keep the saved email but defer the next prompt."""
+        if skip_days < 0:
+            raise ValueError("skip_days must be >= 0")
+        store = self._contact_store()
+        state = store.load()
+        if state.get("status") != "registered" or not state.get("email"):
+            raise ValueError("no registered contact email to defer")
+        store.defer(skip_days=skip_days)
+
+    def _contact_store(self) -> ContactStore:
+        if self._contact is None:
+            self._contact = ContactStore(self._app_dir / "contact.json")
+        return self._contact
+
     def _stamp(self, body: dict[str, Any]) -> dict[str, Any]:
         """Attach a stable message_id for at-least-once idempotency on the server."""
         if "message_id" not in body:
@@ -247,18 +347,14 @@ class LogBalloon:
             )
             action = result.get("action")
             if action == "ok":
-                self._contact.confirm(
-                    consent_version=self._contact_consent_version,
+                self.confirm_contact(
                     skip_days=quiet,
-                )
-                self._enqueue_user(
-                    email=str(state["email"]),
-                    action="confirm",
+                    consent_version=self._contact_consent_version,
                 )
             elif action == "change":
                 self._prompt_register(message=message, initial=str(state["email"]))
             elif action in {"defer", "cancel", "skip"}:
-                self._contact.defer(skip_days=quiet)
+                self.defer_contact(skip_days=quiet)
             return
 
         self._prompt_register(message=message, initial="")
@@ -274,35 +370,21 @@ class LogBalloon:
             )
             action = result.get("action")
             if action in {"skip", "cancel", "defer"}:
-                self._contact.skip(skip_days=quiet)
+                self.skip_contact(skip_days=quiet)
                 return
             if action != "submit":
-                self._contact.skip(skip_days=quiet)
+                self.skip_contact(skip_days=quiet)
                 return
             email = str(result.get("email") or "")
             if not is_plausible_email(email):
                 # Re-show with the bad value so the user can fix it.
                 initial = email.strip()
                 continue
-            existing = self._contact.load()
-            action_name = (
-                "update"
-                if existing.get("status") == "registered" and existing.get("email")
-                else "register"
+            self.submit_contact(
+                email,
+                skip_days=quiet,
+                consent_version=self._contact_consent_version,
             )
-            if action_name == "update":
-                self._contact.update_email(
-                    email,
-                    consent_version=self._contact_consent_version,
-                    skip_days=quiet,
-                )
-            else:
-                self._contact.register(
-                    email,
-                    consent_version=self._contact_consent_version,
-                    skip_days=quiet,
-                )
-            self._enqueue_user(email=email.strip(), action=action_name)
             return
 
     def _invoke_contact_ui(
@@ -330,16 +412,23 @@ class LogBalloon:
             )
         raise RuntimeError(f"No contact UI available for {self._contact_ui!r}")
 
-    def _enqueue_user(self, *, email: str, action: str) -> None:
+    def _enqueue_user(
+        self,
+        *,
+        email: str,
+        action: str,
+        consent_version: int,
+    ) -> str:
         body = self._stamp({
             **self._env,
             "email": email.strip(),
             "action": action,
-            "consent_version": self._contact_consent_version,
+            "consent_version": consent_version,
             "timestamp": time.time(),
         })
         self._queue.enqueue("user", body)
         self._wake.set()
+        return str(body["message_id"])
 
     def _excepthook(self, exc_type, exc, tb) -> None:
         try:
