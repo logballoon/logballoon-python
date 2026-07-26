@@ -7,10 +7,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CONTACT_MESSAGE = (
-    "May we keep an email so we can contact you if something goes wrong?\n"
-    "We only use it when we need to reach you about this app."
-)
+# Re-export English default for backward-compatible imports.
+from logballoon.contact_i18n import DEFAULT_CONTACT_MESSAGE  # noqa: F401
 
 
 def is_plausible_email(value: str) -> bool:

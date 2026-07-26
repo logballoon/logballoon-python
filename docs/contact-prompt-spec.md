@@ -156,7 +156,7 @@ crash を後で足すときの前提（Phase F）:
 
 ```json
 {
-  "app": "FFT Analyzer",
+  "app": "logballoon_test_app",
   "version": "1.0.0",
   "sdk_version": "0.1.3",
   "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -198,8 +198,8 @@ crash を後で足すときの前提（Phase F）:
 |---|---|
 | 実装 | Tkinter（stdlib） |
 | 配布 | **コア同梱＋遅延 import**（`logballoon.ui.tk`）。pip extras にはしない |
-| 文言 | デフォルト短文 + `message=` で上書き |
-| 多言語 | MVP はアプリ側 `message` に任せる。SDK 内 i18n は後回し |
+| 文言 | デフォルトは OS UI 言語（en / ja / zh）を自動判定。`message=` で本文のみ上書き可。`lang=` で明示指定可 |
+| 多言語 | MVP は en / ja / zh。未知ロケールは en |
 
 ### 決定: Tk は extras にしない
 

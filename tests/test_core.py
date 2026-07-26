@@ -344,7 +344,7 @@ def test_contact_prompt_register_queues_user(tmp_path: Path) -> None:
         lb.start()
         lb.flush(timeout=2.0)
 
-        def fake_prompt(*, mode: str, message: str, email: str | None = None):
+        def fake_prompt(*, mode: str, message: str, email: str | None = None, **_kwargs):
             assert mode == "register"
             return {"action": "submit", "email": "dev@example.com"}
 
@@ -366,7 +366,7 @@ def test_contact_prompt_register_queues_user(tmp_path: Path) -> None:
 def test_contact_prompt_confirm_and_offline_queue(tmp_path: Path) -> None:
     calls: list[str] = []
 
-    def fake_prompt(*, mode: str, message: str, email: str | None = None):
+    def fake_prompt(*, mode: str, message: str, email: str | None = None, **_kwargs):
         calls.append(mode)
         if mode == "confirm":
             return {"action": "ok"}
@@ -420,4 +420,56 @@ def test_contact_prompt_skip_does_not_enqueue(tmp_path: Path) -> None:
     store = ContactStore(tmp_path / "lb" / "TestApp" / "contact.json")
     assert store.load()["status"] == "skipped"
     assert not store.should_prompt()
+    lb.stop(flush=False)
+
+
+def test_contact_i18n_detects_and_resolves(monkeypatch) -> None:
+    from logballoon.contact_i18n import (
+        contact_strings,
+        default_contact_message,
+        detect_ui_lang,
+        resolve_lang,
+    )
+
+    monkeypatch.setenv("LC_ALL", "ja_JP.UTF-8")
+    monkeypatch.delenv("LC_MESSAGES", raising=False)
+    monkeypatch.delenv("LANG", raising=False)
+    monkeypatch.delenv("LANGUAGE", raising=False)
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._locale_getlocale", lambda: None
+    )
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._locale_getdefaultlocale", lambda: None
+    )
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._windows_ui_lang", lambda: None
+    )
+    assert detect_ui_lang() == "ja"
+    assert "メール" in default_contact_message()
+    assert contact_strings("ja")["submit"] == "送信"
+    assert contact_strings("zh")["skip"] == "跳过"
+    assert resolve_lang("ja-JP") == "ja"
+    assert resolve_lang("fr") == "en"
+
+
+def test_contact_prompt_uses_explicit_lang(tmp_path: Path) -> None:
+    seen: dict[str, str] = {}
+
+    def fake_prompt(*, mode: str, message: str, email: str | None = None, lang: str = "en"):
+        seen["lang"] = lang
+        seen["message"] = message
+        return {"action": "skip"}
+
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+        flush_interval=60.0,
+    )
+    lb.start()
+    lb.enable_contact_prompt(ui="custom", lang="ja", prompt_fn=fake_prompt)
+    assert seen["lang"] == "ja"
+    assert "メール" in seen["message"]
     lb.stop(flush=False)

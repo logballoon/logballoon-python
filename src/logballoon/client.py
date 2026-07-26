@@ -11,11 +11,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Callable
 
-from logballoon.contact import (
-    DEFAULT_CONTACT_MESSAGE,
-    ContactStore,
-    is_plausible_email,
-)
+from logballoon.contact import ContactStore, is_plausible_email
+from logballoon.contact_i18n import default_contact_message, resolve_lang
 from logballoon.env import collect_env
 from logballoon.identity import data_dir, get_or_create_installation_id
 from logballoon.queue import OfflineQueue
@@ -87,6 +84,7 @@ class LogBalloon:
         self._contact_on: tuple[str, ...] = ()
         self._contact_skip_days = 14.0
         self._contact_message: str | None = None
+        self._contact_lang: str = "en"
         self._contact_consent_version = 1
         self._contact_prompt_fn: ContactPromptFn | None = None
 
@@ -125,6 +123,7 @@ class LogBalloon:
         on: Sequence[str] = ("startup",),
         skip_days: float = 14,
         message: str | None = None,
+        lang: str | None = None,
         consent_version: int = 1,
         prompt_fn: ContactPromptFn | None = None,
     ) -> None:
@@ -132,6 +131,10 @@ class LogBalloon:
 
         ``ui`` must be ``\"tk\"`` for the built-in dialog, or pass ``prompt_fn``
         for tests / custom UIs (``ui`` may then be any label such as ``\"custom\"``).
+
+        ``lang`` defaults to auto-detect from the OS UI language (``en`` / ``ja`` /
+        ``zh``). Pass an explicit code to override. ``message`` overrides only the
+        body text; button labels still follow ``lang``.
         """
         triggers = tuple(on)
         for name in triggers:
@@ -152,6 +155,7 @@ class LogBalloon:
         self._contact_ui = ui
         self._contact_on = triggers
         self._contact_skip_days = float(skip_days)
+        self._contact_lang = resolve_lang(lang)
         self._contact_message = message
         self._contact_consent_version = int(consent_version)
         self._contact_prompt_fn = prompt_fn
@@ -217,7 +221,7 @@ class LogBalloon:
         assert self._contact is not None
         state = self._contact.load()
         status = state.get("status", "unset")
-        message = self._contact_message or _default_contact_message()
+        message = self._contact_message or default_contact_message(self._contact_lang)
 
         if status == "registered" and state.get("email"):
             result = self._invoke_contact_ui(
@@ -285,11 +289,21 @@ class LogBalloon:
         email: str,
     ) -> dict[str, Any]:
         if self._contact_prompt_fn is not None:
-            return self._contact_prompt_fn(mode=mode, message=message, email=email)
+            return self._contact_prompt_fn(
+                mode=mode,
+                message=message,
+                email=email,
+                lang=self._contact_lang,
+            )
         if self._contact_ui == "tk":
             from logballoon.ui import tk as tk_ui
 
-            return tk_ui.prompt_contact(mode=mode, message=message, email=email)
+            return tk_ui.prompt_contact(
+                mode=mode,
+                message=message,
+                email=email,
+                lang=self._contact_lang,
+            )
         raise RuntimeError(f"No contact UI available for {self._contact_ui!r}")
 
     def _enqueue_user(self, *, email: str, action: str) -> None:
@@ -364,10 +378,6 @@ class LogBalloon:
                 self._queue.delete(item["id"])
                 delivered += 1
             return delivered
-
-
-def _default_contact_message() -> str:
-    return DEFAULT_CONTACT_MESSAGE
 
 
 def _safe_name(name: str) -> str:

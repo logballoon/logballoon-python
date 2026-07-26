@@ -87,7 +87,7 @@ Other things to try:
 from logballoon import LogBalloon
 
 lb = LogBalloon(
-    app_name="FFT Analyzer",
+    app_name="logballoon_test_app",
     version="1.0.0",
     endpoint="http://127.0.0.1:8765",  # your self-hosted server
 )
@@ -128,7 +128,7 @@ shared secret, pass a key:
 
 ```python
 lb = LogBalloon(
-    app_name="FFT Analyzer",
+    app_name="logballoon_test_app",
     version="1.0.0",
     endpoint="https://ops.example.com",
     api_key="...",  # sends Authorization: Bearer ...
@@ -139,7 +139,7 @@ Or arbitrary headers (Basic auth, gateway keys, tenant IDs, …):
 
 ```python
 lb = LogBalloon(
-    app_name="FFT Analyzer",
+    app_name="logballoon_test_app",
     version="1.0.0",
     endpoint="https://ops.example.com",
     headers={
@@ -166,7 +166,8 @@ lb.enable_contact_prompt(
     ui="tk",             # stdlib Tkinter, imported only when used
     on=("startup",),     # startup only for now
     skip_days=14,        # quiet period after Skip / Not now
-    message=None,        # your own wording
+    message=None,        # optional; default body follows OS language
+    lang=None,           # auto from OS UI language (en / ja / zh); or "ja"
     consent_version=1,
 )
 ```
@@ -176,6 +177,8 @@ Behaviour:
 - **First run:** enter an email, or Skip
 - **Later runs:** confirm the saved address (OK / Change / Not now)
 - **Skip or Not now:** stays quiet for `skip_days`
+- **Language:** default body and buttons follow the OS UI language (`en` / `ja` /
+  `zh`). Override with `lang="ja"` or a custom `message=`
 - Email is stored in `contact.json` next to `installation_id` and sent to
   `POST /user` — never mixed into event payloads
 
