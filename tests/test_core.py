@@ -484,6 +484,37 @@ def test_contact_i18n_detects_and_resolves(monkeypatch) -> None:
     assert resolve_lang("fr") == "en"
 
 
+def test_contact_i18n_prefers_windows_ui_over_english_process(monkeypatch) -> None:
+    """IDE-launched Python can have English process locale on a Japanese OS."""
+    from logballoon.contact_i18n import detect_ui_lang, default_contact_message
+
+    monkeypatch.delenv("LC_ALL", raising=False)
+    monkeypatch.delenv("LC_MESSAGES", raising=False)
+    monkeypatch.delenv("LANG", raising=False)
+    monkeypatch.delenv("LANGUAGE", raising=False)
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._windows_ui_lang", lambda: "ja"
+    )
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._locale_getlocale",
+        lambda: "English_United States",
+    )
+    monkeypatch.setattr(
+        "logballoon.contact_i18n._locale_getdefaultlocale",
+        lambda: "en_US",
+    )
+    assert detect_ui_lang() == "ja"
+    assert "メール" in default_contact_message()
+
+
+def test_contact_i18n_maps_windows_locale_names() -> None:
+    from logballoon.contact_i18n import resolve_lang
+
+    assert resolve_lang("Japanese_Japan") == "ja"
+    assert resolve_lang("Chinese_China") == "zh"
+    assert resolve_lang("English_United States") == "en"
+
+
 def test_contact_prompt_uses_explicit_lang(tmp_path: Path) -> None:
     seen: dict[str, str] = {}
 

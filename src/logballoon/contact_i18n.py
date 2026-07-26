@@ -61,17 +61,25 @@ _WIN_PRIMARY = {
     0x04: "zh",  # Chinese (simplified / traditional share primary)
 }
 
+# Windows locale.getlocale() often returns names like "Japanese_Japan".
+_NAME_TO_LANG = (
+    ("japanese", "ja"),
+    ("chinese", "zh"),
+    ("english", "en"),
+)
+
 
 def detect_ui_lang() -> str:
-    """Pick en / ja / zh from the OS / process locale. Unknown → en."""
+    """Pick en / ja / zh from the OS UI language. Unknown → en.
+
+    On Windows, the process locale (locale.getlocale) often follows the
+    launcher (IDE / English tooling) and can be English even when the user
+    runs a Japanese desktop. Prefer GetUserDefaultUILanguage first.
+    """
     for tag in _locale_candidates():
-        code = _normalize_tag(tag)
-        if code.startswith("ja"):
-            return "ja"
-        if code.startswith("zh"):
-            return "zh"
-        if code.startswith("en"):
-            return "en"
+        lang = _tag_to_lang(tag)
+        if lang:
+            return lang
     return "en"
 
 
@@ -79,11 +87,10 @@ def resolve_lang(lang: str | None) -> str:
     """Return a supported pack name. None / 'auto' → detect."""
     if lang is None or lang == "auto":
         return detect_ui_lang()
+    mapped = _tag_to_lang(lang)
+    if mapped:
+        return mapped
     code = _normalize_tag(lang)
-    if code.startswith("ja"):
-        return "ja"
-    if code.startswith("zh"):
-        return "zh"
     if code in _STRINGS:
         return code
     return "en"
@@ -103,26 +110,45 @@ def _normalize_tag(tag: str) -> str:
     return tag.strip().replace("-", "_").lower().split(".")[0]
 
 
+def _tag_to_lang(tag: str) -> str | None:
+    code = _normalize_tag(tag)
+    if not code:
+        return None
+    # ISO-ish: ja, ja_JP, zh_CN, en_US
+    if code == "ja" or code.startswith("ja_"):
+        return "ja"
+    if code == "zh" or code.startswith("zh_"):
+        return "zh"
+    if code == "en" or code.startswith("en_"):
+        return "en"
+    # Windows English names: Japanese_Japan, Chinese_China, …
+    for name, lang in _NAME_TO_LANG:
+        if code == name or code.startswith(name + "_"):
+            return lang
+    return None
+
+
 def _locale_candidates() -> list[str]:
     found: list[str] = []
+
+    def _add(tag: str | None) -> None:
+        if tag and tag not in found:
+            found.append(tag)
+
+    # 1) OS UI language first (most faithful to what the user sees).
+    _add(_windows_ui_lang())
+
+    # 2) Explicit env overrides (useful in CI / containers).
     for key in ("LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"):
         raw = os.environ.get(key)
         if not raw:
             continue
-        # LANGUAGE may be "ja:en"; Windows sometimes uses ";".
         for part in raw.replace(";", ":").split(":"):
-            part = part.strip()
-            if part and part not in found:
-                found.append(part)
+            _add(part.strip())
 
-    for getter in (_locale_getlocale, _locale_getdefaultlocale):
-        tag = getter()
-        if tag and tag not in found:
-            found.append(tag)
-
-    win = _windows_ui_lang()
-    if win and win not in found:
-        found.append(win)
+    # 3) Process / default locale (may follow the IDE, not the OS UI).
+    _add(_locale_getlocale())
+    _add(_locale_getdefaultlocale())
 
     return found
 
