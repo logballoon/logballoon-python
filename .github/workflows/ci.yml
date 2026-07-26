@@ -28,3 +28,6 @@ jobs:
 
       - name: Test
         run: python -m pytest -q
+
+      - name: Check docs i18n keys
+        run: python scripts/check_i18n.py

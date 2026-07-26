@@ -14,7 +14,10 @@ from logballoon.queue import OfflineQueue
 from logballoon.transport import Transport, TransportError
 
 
-def _start_server() -> tuple[ThreadingHTTPServer, list[dict], threading.Thread]:
+def _start_server(
+    *,
+    required_api_key: str | None = None,
+) -> tuple[ThreadingHTTPServer, list[dict], threading.Thread]:
     """Tiny local HTTP server that records POSTs."""
     received: list[dict] = []
 
@@ -23,9 +26,24 @@ def _start_server() -> tuple[ThreadingHTTPServer, list[dict], threading.Thread]:
             return
 
         def do_POST(self) -> None:  # noqa: N802
+            if required_api_key:
+                auth = self.headers.get("Authorization", "")
+                x_key = self.headers.get("X-API-Key")
+                ok = auth == f"Bearer {required_api_key}" or x_key == required_api_key
+                if not ok:
+                    self.send_response(401)
+                    self.end_headers()
+                    self.wfile.write(b'{"ok":false}')
+                    return
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8"))
-            received.append({"path": self.path, "body": body})
+            received.append(
+                {
+                    "path": self.path,
+                    "body": body,
+                    "headers": {k: v for k, v in self.headers.items()},
+                }
+            )
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'{"ok":true}')
@@ -56,6 +74,85 @@ def test_transport_posts_json() -> None:
         t.send("startup", {"app": "t"})
         assert received[0]["path"] == "/startup"
         assert received[0]["body"]["app"] == "t"
+    finally:
+        server.shutdown()
+
+
+def test_transport_sends_api_key_and_custom_headers() -> None:
+    server, received, _ = _start_server()
+    host, port = server.server_address
+    try:
+        t = Transport(
+            f"http://{host}:{port}",
+            timeout=2.0,
+            api_key="secret-token",
+            headers={"X-Tenant": "lab-a"},
+        )
+        t.send("event", {"event": "ping"})
+        headers = received[0]["headers"]
+        assert headers.get("Authorization") == "Bearer secret-token"
+        assert headers.get("X-Tenant") == "lab-a"
+    finally:
+        server.shutdown()
+
+
+def test_transport_headers_override_api_key() -> None:
+    server, received, _ = _start_server()
+    host, port = server.server_address
+    try:
+        t = Transport(
+            f"http://{host}:{port}",
+            timeout=2.0,
+            api_key="ignored",
+            headers={"Authorization": "Bearer from-headers"},
+        )
+        t.send("event", {"event": "ping"})
+        assert received[0]["headers"].get("Authorization") == "Bearer from-headers"
+    finally:
+        server.shutdown()
+
+
+def test_client_rejects_wrong_api_key(tmp_path: Path) -> None:
+    server, received, _ = _start_server(required_api_key="correct")
+    host, port = server.server_address
+    try:
+        lb = LogBalloon(
+            app_name="TestApp",
+            version="0.0.1",
+            endpoint=f"http://{host}:{port}",
+            data_root=tmp_path / "lb",
+            install_excepthook=False,
+            flush_interval=60.0,
+            api_key="wrong",
+        )
+        lb.start()
+        assert lb.flush(timeout=2.0) == 0
+        assert lb.pending() >= 1
+        assert received == []
+        lb.stop(flush=False)
+    finally:
+        server.shutdown()
+
+
+def test_client_delivers_with_api_key(tmp_path: Path) -> None:
+    server, received, _ = _start_server(required_api_key="correct")
+    host, port = server.server_address
+    try:
+        lb = LogBalloon(
+            app_name="TestApp",
+            version="0.0.1",
+            endpoint=f"http://{host}:{port}",
+            data_root=tmp_path / "lb",
+            install_excepthook=False,
+            flush_interval=60.0,
+            api_key="correct",
+        )
+        lb.start()
+        lb.event("secured", {"ok": True})
+        lb.flush(timeout=3.0)
+        assert lb.pending() == 0
+        assert any(r["path"] == "/event" for r in received)
+        lb.stop()
     finally:
         server.shutdown()
 
@@ -205,3 +302,122 @@ def test_backoff_grows_then_caps(tmp_path: Path) -> None:
     assert lb._wait_seconds() == 4.0
     lb._fail_streak = 10
     assert lb._wait_seconds() == 8.0
+
+
+def test_contact_store_register_skip_and_defer(tmp_path: Path) -> None:
+    from logballoon.contact import ContactStore, is_plausible_email
+
+    assert is_plausible_email("a@b.c")
+    assert not is_plausible_email("nosignal")
+    assert not is_plausible_email("   ")
+
+    store = ContactStore(tmp_path / "contact.json")
+    assert store.should_prompt()
+    store.skip(skip_days=14)
+    assert store.load()["status"] == "skipped"
+    assert not store.should_prompt()
+    # Force skip_until into the past
+    data = store.load()
+    data["skip_until"] = 1.0
+    store.save(data)
+    assert store.should_prompt()
+
+    store.register("user@example.com", consent_version=1)
+    assert store.load()["email"] == "user@example.com"
+    store.defer(skip_days=14)
+    assert store.load()["status"] == "registered"
+    assert not store.should_prompt()
+
+
+def test_contact_prompt_register_queues_user(tmp_path: Path) -> None:
+    server, received, _ = _start_server()
+    host, port = server.server_address
+    try:
+        lb = LogBalloon(
+            app_name="TestApp",
+            version="0.0.1",
+            endpoint=f"http://{host}:{port}",
+            data_root=tmp_path / "lb",
+            install_excepthook=False,
+            flush_interval=60.0,
+        )
+        lb.start()
+        lb.flush(timeout=2.0)
+
+        def fake_prompt(*, mode: str, message: str, email: str | None = None):
+            assert mode == "register"
+            return {"action": "submit", "email": "dev@example.com"}
+
+        lb.enable_contact_prompt(ui="custom", prompt_fn=fake_prompt)
+        lb.flush(timeout=3.0)
+
+        users = [r for r in received if r["path"] == "/user"]
+        assert len(users) == 1
+        body = users[0]["body"]
+        assert body["email"] == "dev@example.com"
+        assert body["action"] == "register"
+        assert body["consent_version"] == 1
+        assert (tmp_path / "lb" / "TestApp" / "contact.json").exists()
+        lb.stop()
+    finally:
+        server.shutdown()
+
+
+def test_contact_prompt_confirm_and_offline_queue(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def fake_prompt(*, mode: str, message: str, email: str | None = None):
+        calls.append(mode)
+        if mode == "confirm":
+            return {"action": "ok"}
+        return {"action": "skip"}
+
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+        flush_interval=60.0,
+    )
+    # Seed registered state
+    from logballoon.contact import ContactStore
+
+    store = ContactStore(tmp_path / "lb" / "TestApp" / "contact.json")
+    store.register("kept@example.com", consent_version=1)
+
+    lb.start()
+    lb.enable_contact_prompt(ui="custom", prompt_fn=fake_prompt)
+    assert calls == ["confirm"]
+    assert lb.flush(timeout=1.0) == 0  # offline
+    assert lb.pending() >= 2  # startup + user confirm
+    kinds = [item["kind"] for item in lb._queue.peek(10)]
+    assert "user" in kinds
+    user_item = next(i for i in lb._queue.peek(10) if i["kind"] == "user")
+    assert user_item["payload"]["action"] == "confirm"
+    assert user_item["payload"]["email"] == "kept@example.com"
+    lb.stop(flush=False)
+
+
+def test_contact_prompt_skip_does_not_enqueue(tmp_path: Path) -> None:
+    lb = LogBalloon(
+        app_name="TestApp",
+        version="0.0.1",
+        endpoint="http://127.0.0.1:1",
+        data_root=tmp_path / "lb",
+        install_excepthook=False,
+        flush_interval=60.0,
+    )
+    lb.start()
+    before = lb.pending()
+    lb.enable_contact_prompt(
+        ui="custom",
+        prompt_fn=lambda **kwargs: {"action": "skip"},
+    )
+    assert lb.pending() == before  # no /user
+    from logballoon.contact import ContactStore
+
+    store = ContactStore(tmp_path / "lb" / "TestApp" / "contact.json")
+    assert store.load()["status"] == "skipped"
+    assert not store.should_prompt()
+    lb.stop(flush=False)

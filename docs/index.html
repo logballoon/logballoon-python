@@ -307,7 +307,7 @@
 
     .endpoints {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.75rem;
     }
     .endpoints article {
@@ -384,6 +384,7 @@
         <span>startup</span>
         <span>event</span>
         <span>crash</span>
+        <span>user</span>
       </div>
     </div>
     <div class="wrap">
@@ -457,6 +458,27 @@ lb.event(
     <section>
       <div class="wrap grid-2">
         <div>
+          <h2 data-i18n="tryTitle"></h2>
+          <p class="lead" data-i18n="tryLead"></p>
+          <p class="code-label" data-i18n="tryLabel"></p>
+          <pre><code>git clone https://github.com/logballoon/logballoon-python
+cd logballoon-python
+python examples/try_local.py</code></pre>
+        </div>
+        <div>
+          <ul class="checklist">
+            <li data-i18n="try1"></li>
+            <li data-i18n="try2"></li>
+            <li data-i18n="try3"></li>
+            <li data-i18n="try4"></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap grid-2">
+        <div>
           <h2 data-i18n="customTitle"></h2>
           <p class="lead" data-i18n="customLead"></p>
           <p class="code-label">Event payload</p>
@@ -487,10 +509,45 @@ lb.event("job_done", {
               <code>POST /crash</code>
               <p data-i18n="epCrash"></p>
             </article>
+            <article>
+              <code>POST /user</code>
+              <p data-i18n="epUser"></p>
+            </article>
           </div>
           <div class="callout">
             <a class="protocol-link" href="./protocol.html" data-i18n="protocolLink"></a>
             <p data-i18n="protocolHint"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap grid-2">
+        <div>
+          <h2 data-i18n="authTitle"></h2>
+          <p class="lead" data-i18n="authLead"></p>
+          <p class="code-label" data-i18n="authLabel"></p>
+          <pre><code>lb = LogBalloon(
+    app_name="FFT Analyzer",
+    version="1.0.0",
+    endpoint="https://ops.example.com",
+    api_key="...",   # Authorization: Bearer ...
+    # headers={"X-Tenant": "lab-a"},
+)</code></pre>
+        </div>
+        <div>
+          <h2 data-i18n="contactTitle"></h2>
+          <p class="lead" data-i18n="contactLead"></p>
+          <p class="code-label" data-i18n="contactLabel"></p>
+          <pre><code>lb.start()
+lb.enable_contact_prompt(
+    ui="tk",
+    on=("startup",),
+    skip_days=14,
+)</code></pre>
+          <div class="callout">
+            <p data-i18n="contactNote"></p>
           </div>
         </div>
       </div>
@@ -547,8 +604,23 @@ lb.event("job_done", {
         epStartup: "App boot + environment",
         epEvent: "Named events + free payload",
         epCrash: "Exception + stack trace",
+        epUser: "Contact email (opt-in)",
         protocolLink: "Read the envelope contract →",
-        protocolHint: "Fixed fields, free-form payload, and the three REST routes — in one page.",
+        protocolHint: "Fixed fields, free-form payload, and the four REST routes — in one page.",
+        tryTitle: "Try it in 30 seconds",
+        tryLead: "No server to set up. One file starts a throwaway receiver, sends real traffic through the SDK, and prints what arrived.",
+        tryLabel: "Terminal",
+        try1: "Receiver on a free port — nothing to configure",
+        try2: "Prints the /startup and /event bodies it received",
+        try3: "Add --crash to deliver a real stack trace",
+        try4: "Or run demo_server.py + demo_client.py in two terminals",
+        authTitle: "Optional endpoint auth",
+        authLead: "Off by default. Send a Bearer key, or any headers your gateway expects — Basic auth, tenant IDs, custom keys.",
+        authLabel: "Python",
+        contactTitle: "Optional contact prompt",
+        contactLead: "installation_id cannot tell you who to email. Ask once, remember the answer, deliver it over the same offline queue.",
+        contactLabel: "Python",
+        contactNote: "Nothing appears on import. Without enable_contact_prompt() there is no dialog and no stored file. Skip stays quiet for 14 days.",
         whoTitle: "Who it is for",
         whoLead: "Internal tools, factory-floor apps, research utilities, and small AI-generated desktop apps that should not reinvent operations plumbing.",
       },
@@ -578,8 +650,23 @@ lb.event("job_done", {
         epStartup: "起動 + 環境情報",
         epEvent: "名前付きイベント + 自由な payload",
         epCrash: "例外 + スタックトレース",
+        epUser: "連絡先メール（任意）",
         protocolLink: "Envelope 契約を読む →",
-        protocolHint: "固定フィールド、自由な payload、REST 3本を1ページにまとめています。",
+        protocolHint: "固定フィールド、自由な payload、REST 4本を1ページにまとめています。",
+        tryTitle: "30 秒で試す",
+        tryLead: "サーバ準備は不要。1 ファイル実行で使い捨て受信サーバが立ち上がり、実際の送信内容がそのまま表示されます。",
+        tryLabel: "ターミナル",
+        try1: "空きポートに受信サーバ。設定不要",
+        try2: "受け取った /startup と /event の中身を表示",
+        try3: "--crash を付ければ本物のスタックトレースも送信",
+        try4: "demo_server.py + demo_client.py の2ターミナル版もあり",
+        authTitle: "エンドポイント認証（任意）",
+        authLead: "デフォルトは無効。Bearer キーでも、Basic 認証やテナント ID など任意のヘッダでも送れます。",
+        authLabel: "Python",
+        contactTitle: "連絡先プロンプト（任意）",
+        contactLead: "installation_id だけでは誰に連絡すべきか分かりません。一度だけ聞いて保持し、同じオフラインキューで届けます。",
+        contactLabel: "Python",
+        contactNote: "import しただけでは何も出ません。enable_contact_prompt() を呼ばない限りダイアログもファイルも作られません。スキップ後は 14 日間出ません。",
         whoTitle: "誰のための SDK か",
         whoLead: "社内ツール、現場アプリ、研究用ユーティリティ、AI 生成の小型デスクトップアプリ。運用基盤を毎回自作しなくてよいように。",
       },
@@ -609,8 +696,23 @@ lb.event("job_done", {
         epStartup: "启动 + 环境信息",
         epEvent: "命名事件 + 自由 payload",
         epCrash: "异常 + 堆栈",
+        epUser: "联系邮箱（可选）",
         protocolLink: "阅读 Envelope 约定 →",
-        protocolHint: "固定字段、自由 payload、三条 REST 路径，一页说明。",
+        protocolHint: "固定字段、自由 payload、四条 REST 路径，一页说明。",
+        tryTitle: "30 秒上手",
+        tryLead: "无需搭建服务端。运行一个文件即可启动临时接收端，直接打印 SDK 实际发送的内容。",
+        tryLabel: "终端",
+        try1: "在空闲端口启动接收端，零配置",
+        try2: "打印收到的 /startup 与 /event 正文",
+        try3: "加上 --crash 还会发送真实堆栈",
+        try4: "也可用 demo_server.py + demo_client.py 双终端方式",
+        authTitle: "可选的端点认证",
+        authLead: "默认关闭。可发送 Bearer 密钥，也可发送网关需要的任意请求头：Basic 认证、租户 ID、自定义密钥。",
+        authLabel: "Python",
+        contactTitle: "可选的联系方式弹窗",
+        contactLead: "仅有 installation_id 无法知道该联系谁。只询问一次并记住结果，通过同一条离线队列送达。",
+        contactLabel: "Python",
+        contactNote: "仅 import 不会有任何弹窗。不调用 enable_contact_prompt() 就不会有对话框，也不会写入文件。跳过后 14 天内不再询问。",
         whoTitle: "适合谁用",
         whoLead: "内部工具、产线应用、研究小工具，以及不想每次自建运维底座的小型 AI 生成桌面应用。",
       },

@@ -18,7 +18,17 @@ from logballoon import LogBalloon  # noqa: E402
 def main() -> None:
     parser = argparse.ArgumentParser(description="LogBalloon demo client")
     parser.add_argument("--endpoint", default="http://127.0.0.1:8765")
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="Optional Bearer token (match demo_server --api-key)",
+    )
     parser.add_argument("--crash", action="store_true", help="Raise after start (crash demo)")
+    parser.add_argument(
+        "--contact",
+        action="store_true",
+        help="Enable Tk contact prompt after start",
+    )
     args = parser.parse_args()
 
     lb = LogBalloon(
@@ -26,8 +36,11 @@ def main() -> None:
         version="0.1.0",
         endpoint=args.endpoint,
         flush_interval=2.0,
+        api_key=args.api_key,
     )
     lb.start()
+    if args.contact:
+        lb.enable_contact_prompt(ui="tk")
     print(f"installation_id={lb.installation_id}")
     print(f"pending(before events)={lb.pending()}")
 

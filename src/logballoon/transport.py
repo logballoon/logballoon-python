@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urljoin
 
@@ -16,9 +17,17 @@ class TransportError(Exception):
 class Transport:
     """Minimal JSON HTTP client."""
 
-    def __init__(self, endpoint: str, timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        timeout: float = 10.0,
+        *,
+        api_key: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         self.endpoint = endpoint.rstrip("/") + "/"
         self.timeout = timeout
+        self._headers = _build_headers(api_key=api_key, headers=headers)
 
     def _url(self, path: str) -> str:
         return urljoin(self.endpoint, path.lstrip("/"))
@@ -29,11 +38,7 @@ class Transport:
             self._url(path),
             data=body,
             method="POST",
-            headers={
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
-                "User-Agent": "logballoon-python",
-            },
+            headers=dict(self._headers),
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
@@ -54,7 +59,26 @@ class Transport:
             "startup": "/startup",
             "event": "/event",
             "crash": "/crash",
+            "user": "/user",
         }.get(kind)
         if path is None:
             raise TransportError(f"Unknown kind: {kind}")
         self.post(path, payload)
+
+
+def _build_headers(
+    *,
+    api_key: str | None,
+    headers: Mapping[str, str] | None,
+) -> dict[str, str]:
+    """Merge default headers with optional auth. Caller headers win on conflict."""
+    out: dict[str, str] = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json",
+        "User-Agent": "logballoon-python",
+    }
+    if api_key:
+        out["Authorization"] = f"Bearer {api_key}"
+    if headers:
+        out.update(headers)
+    return out

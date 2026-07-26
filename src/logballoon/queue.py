@@ -6,6 +6,7 @@ import json
 import sqlite3
 import threading
 import time
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -23,12 +24,14 @@ class OfflineQueue:
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
+        # closing() is required: `with sqlite3.connect(...)` commits but never
+        # closes, which keeps the file handle open (breaks cleanup on Windows).
         conn = sqlite3.connect(self._db_path, timeout=30)
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self) -> None:
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS queue (
@@ -46,7 +49,7 @@ class OfflineQueue:
         """Append an item. If over capacity, drop the oldest rows first."""
         now = time.time()
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO queue (kind, payload, created_at, attempts) VALUES (?, ?, ?, 0)",
                 (kind, body, now),
@@ -65,7 +68,7 @@ class OfflineQueue:
             return item_id
 
     def peek(self, limit: int = 20) -> list[dict[str, Any]]:
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             rows = conn.execute(
                 "SELECT id, kind, payload, created_at, attempts "
                 "FROM queue ORDER BY id ASC LIMIT ?",
@@ -85,7 +88,7 @@ class OfflineQueue:
         return items
 
     def mark_attempt(self, item_id: int) -> None:
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             conn.execute(
                 "UPDATE queue SET attempts = attempts + 1 WHERE id = ?",
                 (item_id,),
@@ -93,11 +96,11 @@ class OfflineQueue:
             conn.commit()
 
     def delete(self, item_id: int) -> None:
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             conn.execute("DELETE FROM queue WHERE id = ?", (item_id,))
             conn.commit()
 
     def count(self) -> int:
-        with self._lock, self._connect() as conn:
+        with self._lock, closing(self._connect()) as conn:
             row = conn.execute("SELECT COUNT(*) AS n FROM queue").fetchone()
             return int(row["n"])
