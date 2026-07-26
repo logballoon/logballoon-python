@@ -1,12 +1,33 @@
 # LogBalloon
 
-Offline-first logging and operations SDK for desktop apps.
+Offline-first operations companion for Python apps.
 
-**Buffer locally. Deliver reliably.**
+## Not another logger — the layer beside it
 
-Your app keeps working when the network does not. Startup, events, and crashes
-go into a local SQLite queue and are delivered to **your own** server when the
-link comes back.
+Keep `logging`, `loguru`, or your existing logger for detailed execution logs.
+Use LogBalloon beside it for the operational signals that need to survive
+offline and optionally reach your own server: **startup, crashes, selected
+events, and opt-in contact email**.
+
+![logging and LogBalloon work side by side](https://raw.githubusercontent.com/logballoon/logballoon-python/main/docs/overview.svg)
+
+| Your existing logger | LogBalloon |
+|---|---|
+| Detailed execution flow | Small operational signals |
+| Console and log files | Local SQLite queue |
+| Debugging by developers | Offline retry to your endpoint |
+| `debug` / `info` / `warning` | Startup / crash / contact / selected events |
+
+### Private by architecture
+
+- **No LogBalloon cloud:** the SDK never sends data to a vendor-operated service
+- **Local-first:** every outbound item is buffered in SQLite before delivery
+- **Your destination only:** network traffic goes only to the `endpoint` you configure
+- **Self-hosted and inspectable:** four small JSON routes; no hidden control plane
+
+This is local-first, not encrypted storage: the SQLite queue and `contact.json`
+are plain text on the user's disk. Use HTTPS for delivery and rely on OS disk /
+account protection when local data is sensitive.
 
 - Site: https://logballoon.github.io/logballoon-python/
 - Protocol: https://logballoon.github.io/logballoon-python/protocol.html

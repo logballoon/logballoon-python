@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Logging and LogBalloon work side by side</title>
+  <desc id="desc">An application sends detailed execution logs to its existing logger, while LogBalloon stores operational signals in local SQLite and optionally delivers them to a self-hosted endpoint.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dceef8"/>
+      <stop offset="1" stop-color="#f8efe3"/>
+    </linearGradient>
+    <linearGradient id="balloon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9789"/>
+      <stop offset="1" stop-color="#c43b2b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#142033" flood-opacity=".12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6b7a"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="520" rx="28" fill="url(#sky)"/>
+
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif" fill="#142033">
+    <text x="600" y="58" text-anchor="middle" font-size="24" font-weight="700">One app. Two different jobs.</text>
+    <text x="600" y="88" text-anchor="middle" font-size="16" fill="#3a4a63">LogBalloon complements your logger &#8212; it does not replace it.</text>
+
+    <g filter="url(#shadow)">
+      <rect x="55" y="187" width="190" height="118" rx="22" fill="#142033"/>
+      <text x="150" y="235" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Your app</text>
+      <text x="150" y="266" text-anchor="middle" font-size="14" fill="#c5d3e7">desktop &#183; tool &#183; service</text>
+    </g>
+
+    <path d="M245 222 C285 222 292 160 335 160" fill="none" stroke="#5c6b7a" stroke-width="3" marker-end="url(#arrow)"/>
+    <path d="M245 270 C285 270 292 360 335 360" fill="none" stroke="#5c6b7a" stroke-width="3" marker-end="url(#arrow)"/>
+
+    <g filter="url(#shadow)">
+      <rect x="345" y="112" width="275" height="104" rx="18" fill="#fff" stroke="#aebed0"/>
+      <circle cx="385" cy="151" r="17" fill="#e4ebf3"/>
+      <path d="M377 145h16M377 152h16M377 159h11" stroke="#3a4a63" stroke-width="2.5" stroke-linecap="round"/>
+      <text x="416" y="148" font-size="18" font-weight="700">logging / loguru</text>
+      <text x="416" y="176" font-size="14" fill="#3a4a63">Detailed execution flow</text>
+      <text x="416" y="197" font-size="13" fill="#6a778a">debug &#183; info &#183; warning &#183; trace</text>
+    </g>
+    <path d="M620 164 H725" fill="none" stroke="#5c6b7a" stroke-width="3" marker-end="url(#arrow)"/>
+    <g filter="url(#shadow)">
+      <rect x="745" y="122" width="215" height="84" rx="18" fill="#fff" stroke="#aebed0"/>
+      <text x="852" y="157" text-anchor="middle" font-size="17" font-weight="700">Console / files</text>
+      <text x="852" y="182" text-anchor="middle" font-size="13" fill="#3a4a63">developer-readable logs</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="345" y="307" width="275" height="112" rx="18" fill="#fff8f6" stroke="#e85d4c" stroke-width="2"/>
+      <path d="M386 329c-15 0-25 12-25 27 0 16 12 28 25 32 13-4 25-16 25-32 0-15-10-27-25-27z" fill="url(#balloon)"/>
+      <path d="M386 388v12" stroke="#5c6b7a" stroke-width="2"/>
+      <text x="425" y="348" font-size="20" font-weight="700">LogBalloon</text>
+      <text x="425" y="376" font-size="14" fill="#3a4a63">Operational signals</text>
+      <text x="425" y="397" font-size="13" fill="#6a778a">startup &#183; crash &#183; contact &#183; events</text>
+    </g>
+
+    <path d="M620 363 H692" fill="none" stroke="#5c6b7a" stroke-width="3" marker-end="url(#arrow)"/>
+    <g filter="url(#shadow)">
+      <rect x="710" y="316" width="190" height="94" rx="18" fill="#fff" stroke="#1f7a5c" stroke-width="2"/>
+      <ellipse cx="749" cy="346" rx="20" ry="8" fill="#cce8dd"/>
+      <path d="M729 346v30c0 5 9 9 20 9s20-4 20-9v-30" fill="#cce8dd" stroke="#1f7a5c" stroke-width="2"/>
+      <text x="788" y="352" font-size="16" font-weight="700">Local SQLite</text>
+      <text x="788" y="378" font-size="13" fill="#3a4a63">offline-first buffer</text>
+    </g>
+
+    <path d="M900 363 H966" fill="none" stroke="#5c6b7a" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+    <g filter="url(#shadow)">
+      <rect x="984" y="307" width="165" height="112" rx="18" fill="#fff" stroke="#e85d4c"/>
+      <text x="1066" y="343" text-anchor="middle" font-size="15" font-weight="700">Your endpoint</text>
+      <text x="1066" y="368" text-anchor="middle" font-size="13" fill="#3a4a63">optional auth</text>
+      <text x="1066" y="391" text-anchor="middle" font-size="13" fill="#3a4a63">self-hosted only</text>
+    </g>
+
+    <text x="600" y="472" text-anchor="middle" font-size="15" font-weight="700" fill="#1f7a5c">No vendor cloud &#183; Local queue &#183; Only the endpoint you configure</text>
+  </g>
+</svg>

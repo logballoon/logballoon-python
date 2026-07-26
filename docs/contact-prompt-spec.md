@@ -194,7 +194,7 @@ crash を後で足すときの前提（Phase F）:
 {
   "app": "logballoon_test_app",
   "version": "1.0.0",
-  "sdk_version": "0.1.8",
+  "sdk_version": "0.1.9",
   "installation_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "email": "user@example.com",
   "action": "register",

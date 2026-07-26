@@ -3,11 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LogBalloon — Offline-first operations SDK</title>
-  <meta name="description" content="Buffer locally. Deliver reliably. Offline-first logging and operations SDK for desktop apps. Self-host your REST receiver." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>LogBalloon — The offline-first companion to your logger</title>
+  <meta name="description" content="Keep your logger. Add offline-first operational signals, self-hosted delivery, crash capture, and opt-in contact email. No vendor cloud." />
   <style>
     :root {
       --ink: #142033;
@@ -27,7 +24,7 @@
     body {
       margin: 0;
       color: var(--ink);
-      font-family: "Manrope", system-ui, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background:
         radial-gradient(1200px 600px at 70% -10%, rgba(255,255,255,0.55), transparent 60%),
         linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 42%, var(--sky-low) 100%);
@@ -78,13 +75,13 @@
       position: relative;
       min-height: 100vh;
       display: grid;
-      align-items: end;
-      padding: 2rem 0 4.5rem;
+      align-items: center;
+      padding: 4.5rem 0 2.5rem;
       overflow: hidden;
     }
 
     .brand {
-      font-family: "Fraunces", Georgia, serif;
+      font-family: Georgia, "Times New Roman", serif;
       font-weight: 700;
       font-size: clamp(3rem, 9vw, 6.5rem);
       letter-spacing: -0.03em;
@@ -93,11 +90,112 @@
     }
 
     .tag {
-      margin: 1rem 0 0;
-      max-width: 32rem;
-      font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+      margin: 0.75rem 0 0;
+      max-width: 42rem;
+      font-size: clamp(1.08rem, 2.2vw, 1.32rem);
       color: var(--ink-soft);
       font-weight: 500;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1.2rem 0 0;
+      padding: 0.4rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.6);
+      color: var(--balloon-deep);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .hero-map {
+      width: min(800px, 100%);
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 0.9rem;
+      align-items: stretch;
+      margin-top: 1.8rem;
+    }
+    .hero-app {
+      display: grid;
+      place-items: center;
+      min-height: 132px;
+      padding: 1rem;
+      border-radius: 18px;
+      background: var(--ink);
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      box-shadow: 0 10px 24px rgba(20,32,51,0.15);
+    }
+    .hero-app small {
+      display: block;
+      margin-top: 0.25rem;
+      color: #c5d3e7;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .hero-lanes {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .hero-lane {
+      position: relative;
+      display: grid;
+      grid-template-columns: 155px 1fr auto;
+      gap: 0.85rem;
+      align-items: center;
+      min-height: 62px;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.76);
+      backdrop-filter: blur(8px);
+    }
+    .hero-lane::before {
+      content: "→";
+      position: absolute;
+      left: -1.25rem;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .hero-lane.balloon-lane {
+      border-color: rgba(232,93,76,0.5);
+      background: rgba(255,248,246,0.85);
+    }
+    .lane-name { font-weight: 700; }
+    .lane-role { color: var(--ink-soft); font-size: 0.86rem; }
+    .lane-dest {
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(20,32,51,0.08);
+      color: var(--ink);
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .balloon-lane .lane-dest {
+      background: rgba(31,122,92,0.12);
+      color: var(--ok);
+    }
+    .trust-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 1rem;
+    }
+    .trust-strip span {
+      padding: 0.38rem 0.7rem;
+      border: 1px solid rgba(31,122,92,0.25);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.5);
+      color: var(--ok);
+      font-size: 0.78rem;
+      font-weight: 700;
     }
 
     .cta {
@@ -216,7 +314,7 @@
     section:last-child { border-bottom: 0; }
 
     h2 {
-      font-family: "Fraunces", Georgia, serif;
+      font-family: Georgia, "Times New Roman", serif;
       font-size: clamp(1.8rem, 4vw, 2.6rem);
       letter-spacing: -0.02em;
       margin: 0 0 0.6rem;
@@ -246,11 +344,30 @@
       counter-increment: step;
       content: "0" counter(step);
       display: block;
-      font-family: "Fraunces", Georgia, serif;
+      font-family: Georgia, "Times New Roman", serif;
       font-size: 0.85rem;
       color: var(--balloon-deep);
       margin-bottom: 0.55rem;
       letter-spacing: 0.04em;
+    }
+
+    .security-note {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.35rem 0.8rem;
+      align-items: start;
+      margin-top: 1.25rem;
+      padding: 1rem 1.15rem;
+      border: 1px solid rgba(31,122,92,0.22);
+      border-radius: 14px;
+      background: rgba(225,244,237,0.55);
+    }
+    .security-note strong { color: var(--ok); }
+    .security-note p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; }
+    .security-note small {
+      grid-column: 2;
+      color: #667286;
+      font-size: 0.76rem;
     }
 
     pre {
@@ -361,12 +478,16 @@
       .flow, .endpoints { grid-template-columns: 1fr 1fr; }
       .grid-2 { grid-template-columns: 1fr; }
       .balloon { right: -2%; top: 8%; opacity: 0.85; }
-      .packet { display: none; }
       .hero { min-height: 88vh; }
       .lang-bar { right: 1rem; top: 0.85rem; }
     }
     @media (max-width: 520px) {
       .flow, .endpoints { grid-template-columns: 1fr; }
+      .hero-map { grid-template-columns: 1fr; }
+      .hero-app { min-height: auto; }
+      .hero-lane { grid-template-columns: 1fr; gap: 0.2rem; }
+      .hero-lane::before { display: none; }
+      .lane-dest { justify-self: start; }
     }
   </style>
 </head>
@@ -380,16 +501,34 @@
   <header class="hero">
     <div class="sky-art" aria-hidden="true">
       <div class="balloon"><i class="string"></i></div>
-      <div class="packet">
-        <span>startup</span>
-        <span>event</span>
-        <span>crash</span>
-        <span>user</span>
-      </div>
     </div>
     <div class="wrap">
       <p class="brand">LogBalloon</p>
+      <p class="eyebrow" data-i18n="eyebrow"></p>
       <p class="tag" data-i18n="tag"></p>
+      <div class="hero-map" aria-label="LogBalloon and existing logger roles">
+        <div class="hero-app">
+          <span data-i18n="diagramApp"></span>
+          <small data-i18n="diagramAppHint"></small>
+        </div>
+        <div class="hero-lanes">
+          <div class="hero-lane">
+            <span class="lane-name">logging / loguru</span>
+            <span class="lane-role" data-i18n="loggerRole"></span>
+            <span class="lane-dest" data-i18n="loggerDest"></span>
+          </div>
+          <div class="hero-lane balloon-lane">
+            <span class="lane-name">LogBalloon</span>
+            <span class="lane-role" data-i18n="balloonRole"></span>
+            <span class="lane-dest" data-i18n="balloonDest"></span>
+          </div>
+        </div>
+      </div>
+      <div class="trust-strip">
+        <span data-i18n="trustLocal"></span>
+        <span data-i18n="trustEndpoint"></span>
+        <span data-i18n="trustCloud"></span>
+      </div>
       <div class="cta">
         <a class="btn btn-primary" href="https://pypi.org/project/logballoon/">pip install logballoon</a>
         <a class="btn btn-ghost" href="./protocol.html">Protocol</a>
@@ -420,6 +559,11 @@
             <h3 data-i18n="deliverTitle"></h3>
             <p data-i18n="deliverBody"></p>
           </article>
+        </div>
+        <div class="security-note">
+          <strong data-i18n="securityTitle"></strong>
+          <p data-i18n="securityBody"></p>
+          <small data-i18n="securityCaveat"></small>
         </div>
       </div>
     </section>
@@ -579,17 +723,30 @@ lb.enable_contact_prompt(
   <script>
     const I18N = {
       en: {
-        tag: "Buffer offline. Deliver when the network returns.<br />Offline-first operations SDK for desktop apps.",
-        flowTitle: "Buffer locally. Deliver reliably.",
-        flowLead: "Connectivity loss should not stop your app. Events wait in a local SQLite queue and retry when the link is back.",
-        collectTitle: "Collect",
-        collectBody: "Startup, actions, and crashes enter the SDK.",
-        bufferTitle: "Buffer",
-        bufferBody: "If delivery fails, keep them on disk.",
-        relayTitle: "Relay",
-        relayBody: "A background worker retries quietly.",
-        deliverTitle: "Deliver",
-        deliverBody: "Remove from the queue after the server accepts.",
+        eyebrow: "Works beside your logger",
+        tag: "Keep logging or loguru for execution details.<br />Add LogBalloon for offline-first operational signals.",
+        diagramApp: "Your app",
+        diagramAppHint: "one app · two jobs",
+        loggerRole: "Detailed execution flow",
+        loggerDest: "console / files",
+        balloonRole: "Startup · crash · contact · selected events",
+        balloonDest: "SQLite → your endpoint",
+        trustLocal: "Local SQLite first",
+        trustEndpoint: "Only your endpoint",
+        trustCloud: "No vendor cloud",
+        flowTitle: "What it adds — without taking over",
+        flowLead: "LogBalloon stays small and focused. Your logger keeps doing the detailed logging.",
+        collectTitle: "Coexists",
+        collectBody: "No handler replacement. Keep the logging stack you already trust.",
+        bufferTitle: "Offline-first",
+        bufferBody: "Operational signals wait in a bounded local SQLite queue.",
+        relayTitle: "Self-hosted",
+        relayBody: "Retry only to the endpoint you configure. Optional auth included.",
+        deliverTitle: "Contact-aware",
+        deliverBody: "Optionally ask for an email, remember consent, and queue it like any signal.",
+        securityTitle: "No hidden destination.",
+        securityBody: "LogBalloon has no vendor cloud. It writes locally first and only sends to the endpoint you configure.",
+        securityCaveat: "Local SQLite/contact files are plain text. Use HTTPS and OS disk/account protection for sensitive data.",
         startTitle: "Start in a few lines",
         startLead: "No extra dependencies. Pure Python stdlib — urllib + sqlite3.",
         check1: "Auto installation_id",
@@ -625,17 +782,30 @@ lb.enable_contact_prompt(
         whoLead: "Internal tools, factory-floor apps, research utilities, and small AI-generated desktop apps that should not reinvent operations plumbing.",
       },
       ja: {
-        tag: "オフラインでも溜めて、つながったら届ける。<br />デスクトップアプリ向け Offline-first 運用 SDK。",
-        flowTitle: "Buffer locally. Deliver reliably.",
-        flowLead: "通信が切れてもアプリは止めません。イベントはローカル SQLite に退避し、復旧後に再送します。",
-        collectTitle: "Collect",
-        collectBody: "起動・操作・クラッシュを SDK が受け取る。",
-        bufferTitle: "Buffer",
-        bufferBody: "送れなければディスクに保持。",
-        relayTitle: "Relay",
-        relayBody: "バックグラウンドで静かに再送。",
-        deliverTitle: "Deliver",
-        deliverBody: "サーバ受理後にキューから削除。",
+        eyebrow: "既存の logger と共存",
+        tag: "実行の詳細は logging / loguru のまま。<br />オフライン前提の運用シグナルだけ LogBalloon を足す。",
+        diagramApp: "あなたのアプリ",
+        diagramAppHint: "1つのアプリ · 2つの役割",
+        loggerRole: "細かな実行フロー",
+        loggerDest: "コンソール / ファイル",
+        balloonRole: "起動 · クラッシュ · 連絡先 · 選んだイベント",
+        balloonDest: "SQLite → あなたの endpoint",
+        trustLocal: "まずローカル SQLite",
+        trustEndpoint: "送信先は指定 endpoint だけ",
+        trustCloud: "運営クラウドなし",
+        flowTitle: "置き換えずに、足りない部分だけ",
+        flowLead: "詳細ログは既存 logger に任せ、LogBalloon は小さな運用シグナルに集中します。",
+        collectTitle: "共存する",
+        collectBody: "handler を置き換えません。今使っている logging 構成をそのまま維持。",
+        bufferTitle: "オフライン前提",
+        bufferBody: "運用シグナルを上限付きローカル SQLite キューに保持。",
+        relayTitle: "セルフホスト",
+        relayBody: "指定した endpoint だけへ再送。任意認証にも対応。",
+        deliverTitle: "連絡先も扱う",
+        deliverBody: "任意でメールを尋ね、同意状態を保持し、ほかのシグナルと同じキューへ。",
+        securityTitle: "隠れた送信先はありません。",
+        securityBody: "LogBalloon 運営クラウドはなく、まずローカル保存し、設定した endpoint だけへ送ります。",
+        securityCaveat: "ローカルの SQLite / contact ファイルは平文です。機密データには HTTPS と OS のディスク・アカウント保護を使ってください。",
         startTitle: "数行から始められる",
         startLead: "追加依存なし。Python 標準ライブラリ（urllib + sqlite3）だけ。",
         check1: "installation_id の自動生成",
@@ -671,17 +841,30 @@ lb.enable_contact_prompt(
         whoLead: "社内ツール、現場アプリ、研究用ユーティリティ、AI 生成の小型デスクトップアプリ。運用基盤を毎回自作しなくてよいように。",
       },
       zh: {
-        tag: "离线先缓存，网络恢复后再送达。<br />面向桌面应用的 Offline-first 运维 SDK。",
-        flowTitle: "Buffer locally. Deliver reliably.",
-        flowLead: "断网也不应卡住应用。事件先写入本地 SQLite 队列，连通后再重试发送。",
-        collectTitle: "Collect",
-        collectBody: "启动、操作与崩溃进入 SDK。",
-        bufferTitle: "Buffer",
-        bufferBody: "发送失败就保留在本地磁盘。",
-        relayTitle: "Relay",
-        relayBody: "后台静默重试。",
-        deliverTitle: "Deliver",
-        deliverBody: "服务端接收后从队列删除。",
+        eyebrow: "与现有 logger 并存",
+        tag: "执行细节继续交给 logging / loguru。<br />用 LogBalloon 补上离线优先的运维信号。",
+        diagramApp: "你的应用",
+        diagramAppHint: "一个应用 · 两种职责",
+        loggerRole: "详细执行流程",
+        loggerDest: "控制台 / 文件",
+        balloonRole: "启动 · 崩溃 · 联系方式 · 精选事件",
+        balloonDest: "SQLite → 你的端点",
+        trustLocal: "先存本地 SQLite",
+        trustEndpoint: "仅发送至你的端点",
+        trustCloud: "无厂商云",
+        flowTitle: "不替代，只补齐",
+        flowLead: "详细日志仍由现有 logger 负责；LogBalloon 专注少量运维信号。",
+        collectTitle: "并存",
+        collectBody: "不替换 handler，保留你已经信任的 logging 配置。",
+        bufferTitle: "离线优先",
+        bufferBody: "运维信号保存在有上限的本地 SQLite 队列。",
+        relayTitle: "自行托管",
+        relayBody: "只重试到你配置的端点，并支持可选认证。",
+        deliverTitle: "可收集联系方式",
+        deliverBody: "可选询问邮箱、保存同意状态，并与其他信号进入同一队列。",
+        securityTitle: "没有隐藏目的地。",
+        securityBody: "LogBalloon 没有厂商云。数据先写本地，仅发送到你配置的端点。",
+        securityCaveat: "本地 SQLite / contact 文件为明文。敏感数据请使用 HTTPS 与操作系统磁盘、账户保护。",
         startTitle: "几行代码即可接入",
         startLead: "无额外依赖。仅用 Python 标准库（urllib + sqlite3）。",
         check1: "自动生成 installation_id",
